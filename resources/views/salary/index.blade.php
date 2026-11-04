@@ -12,12 +12,12 @@
 
     <section class="card records-card">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-3"><div><h5 class="mb-1">Salary records</h5><div class="text-muted small">{{ number_format($salaries->total()) }} payroll record(s)</div></div>
-            <form method="GET" action="{{ route('salary.index') }}" class="filter-bar d-flex flex-wrap gap-2"><div class="input-group search-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" name="search" value="{{ request('search') }}" placeholder="Employee, code, contract"></div><input class="form-control salary-month-filter" type="month" name="month" value="{{ request('month') }}"><button class="btn btn-light border" type="submit">Filter</button>@if(request()->query())<a class="btn btn-light border" href="{{ route('salary.index') }}">Reset</a>@endif</form>
+            <form method="GET" action="{{ route('salary.index') }}" id="salaryFilterForm" class="filter-bar d-flex flex-wrap gap-2"><div class="input-group search-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" name="search" value="{{ request('search') }}" placeholder="Employee, code, contract"></div><input class="form-control salary-month-filter" id="salaryMonthFilter" type="month" name="month" value="{{ request('month') }}"><button class="btn btn-light border" type="submit">Filter</button>@if(request()->query())<a class="btn btn-light border" href="{{ route('salary.index') }}">Reset</a>@endif<button class="btn btn-outline-success" id="salaryExportButton" type="submit" formaction="{{ route('salary.export.form-b') }}" @disabled(!request('month')) title="Select a pay month to export Form B"><i class="bi bi-file-earmark-excel me-1"></i>Export Form B</button><small class="w-100 text-muted" id="salaryExportSelectionMessage" aria-live="polite">No employees selected: export all salaries for the chosen month.</small></form>
         </div>
-        <div class="table-responsive"><table class="table align-middle enterprise-table salary-table mb-0"><thead><tr><th>Pay month</th><th>Employee</th><th>Contract</th><th>Days × rate</th><th>Gross salary</th><th>Employee deductions</th><th>Employer PF + ESI</th><th>Bonus</th><th>Net salary</th><th class="text-end">Actions</th></tr></thead><tbody>
+        <div class="table-responsive"><table class="table align-middle enterprise-table salary-table mb-0"><thead><tr><th><input class="form-check-input" type="checkbox" id="salarySelectPage" aria-label="Select all employees on this page"></th><th>Pay month</th><th>Employee</th><th>Contract</th><th>Days × rate</th><th>Gross salary</th><th>Employee deductions</th><th>Employer PF + ESI</th><th>Bonus</th><th>Net salary</th><th class="text-end">Actions</th></tr></thead><tbody>
             @forelse($salaries as $salary)
-                <tr><td><strong>{{ \Illuminate\Support\Carbon::parse($salary->salary_month)->format('M Y') }}</strong></td><td><strong>{{ $salary->employee_name_snapshot }}</strong><div class="text-muted small">{{ $salary->employee_code_snapshot }} · {{ $salary->designation_snapshot }}</div></td><td>{{ $salary->contract_number_snapshot ?: '—' }}</td><td>{{ $salary->working_days }} × ₹{{ number_format((float)$salary->daily_wages_rate, 2) }}</td><td class="fw-semibold">₹{{ number_format((float)$salary->gross_salary, 2) }}</td><td>₹{{ number_format((float)$salary->total_deductions, 2) }}<div class="text-muted small">PF ₹{{ number_format((float)$salary->pf_employee_amount, 2) }} · ESI ₹{{ number_format((float)$salary->esi_employee_amount, 2) }}</div></td><td>₹{{ number_format((float)($salary->pf_employer_amount + $salary->esi_employer_amount), 2) }}</td><td>@if($salary->bonus_eligible)<span class="status-pill status-active">Eligible</span>@else<span class="status-pill">Not eligible</span>@endif<div>₹{{ number_format((float)$salary->bonus_amount, 2) }}</div></td><td class="fw-bold text-success">₹{{ number_format((float)$salary->net_salary, 2) }}</td><td class="text-end text-nowrap"><button class="btn btn-sm btn-icon btn-view" type="button" title="View salary" data-bs-toggle="modal" data-bs-target="#salaryViewModal" data-record="{{ json_encode($salary) }}"><i class="bi bi-eye"></i></button>@can('manage-records')<button class="btn btn-sm btn-icon btn-edit" type="button" title="Edit / recalculate" data-bs-toggle="modal" data-bs-target="#salaryModal" data-mode="edit" data-id="{{ $salary->id }}" data-record="{{ json_encode($salary) }}"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-icon btn-delete" type="button" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteSalaryModal" data-id="{{ $salary->id }}" data-label="{{ $salary->employee_code_snapshot }} · {{ \Illuminate\Support\Carbon::parse($salary->salary_month)->format('M Y') }}"><i class="bi bi-trash3"></i></button>@endcan</td></tr>
-            @empty<tr><td colspan="10" class="empty-state"><span class="empty-icon"><i class="bi bi-wallet2"></i></span><strong>No salary records found</strong><span>Adjust the filters or calculate the first salary for an employee.</span>@can('manage-records')<button class="btn btn-primary btn-sm mt-2" type="button" data-bs-toggle="modal" data-bs-target="#salaryModal" data-mode="create">Calculate salary</button>@endcan</td></tr>@endforelse
+                <tr><td><input class="form-check-input salary-export-checkbox" type="checkbox" value="{{ $salary->employee_id }}" aria-label="Select {{ $salary->employee_name_snapshot }} for Form B export"></td><td><strong>{{ \Illuminate\Support\Carbon::parse($salary->salary_month)->format('M Y') }}</strong></td><td><strong>{{ $salary->employee_name_snapshot }}</strong><div class="text-muted small">{{ $salary->employee_code_snapshot }} · {{ $salary->designation_snapshot }}</div></td><td>{{ $salary->contract_number_snapshot ?: '—' }}</td><td>{{ $salary->working_days }} × ₹{{ number_format((float)$salary->daily_wages_rate, 2) }}</td><td class="fw-semibold">₹{{ number_format((float)$salary->gross_salary, 2) }}</td><td>₹{{ number_format((float)$salary->total_deductions, 2) }}<div class="text-muted small">PF ₹{{ number_format((float)$salary->pf_employee_amount, 2) }} · ESI ₹{{ number_format((float)$salary->esi_employee_amount, 2) }}</div></td><td>₹{{ number_format((float)($salary->pf_employer_amount + $salary->esi_employer_amount), 2) }}</td><td>@if($salary->bonus_eligible)<span class="status-pill status-active">Eligible</span>@else<span class="status-pill">Not eligible</span>@endif<div>₹{{ number_format((float)$salary->bonus_amount, 2) }}</div></td><td class="fw-bold text-success">₹{{ number_format((float)$salary->net_salary, 2) }}</td><td class="text-end text-nowrap"><button class="btn btn-sm btn-icon btn-view" type="button" title="View salary" data-bs-toggle="modal" data-bs-target="#salaryViewModal" data-record="{{ json_encode($salary) }}"><i class="bi bi-eye"></i></button>@can('manage-records')<button class="btn btn-sm btn-icon btn-edit" type="button" title="Edit / recalculate" data-bs-toggle="modal" data-bs-target="#salaryModal" data-mode="edit" data-id="{{ $salary->id }}" data-record="{{ json_encode($salary) }}"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-icon btn-delete" type="button" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteSalaryModal" data-id="{{ $salary->id }}" data-label="{{ $salary->employee_code_snapshot }} · {{ \Illuminate\Support\Carbon::parse($salary->salary_month)->format('M Y') }}"><i class="bi bi-trash3"></i></button>@endcan</td></tr>
+            @empty<tr><td colspan="11" class="empty-state"><span class="empty-icon"><i class="bi bi-wallet2"></i></span><strong>No salary records found</strong><span>Adjust the filters or calculate the first salary for an employee.</span>@can('manage-records')<button class="btn btn-primary btn-sm mt-2" type="button" data-bs-toggle="modal" data-bs-target="#salaryModal" data-mode="create">Calculate salary</button>@endcan</td></tr>@endforelse
         </tbody></table></div>
         @if($salaries->hasPages())<div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2"><small class="text-muted">Showing {{ $salaries->firstItem() }}–{{ $salaries->lastItem() }} of {{ $salaries->total() }}</small>{{ $salaries->links() }}</div>@endif
     </section>
@@ -31,16 +31,18 @@
     <div class="modal-body"><div class="row g-3">
         <div class="col-md-6"><label class="form-label" for="salaryMonth">Pay month</label><input class="form-control" id="salaryMonth" name="salary_month" type="month" value="{{ now('Asia/Kolkata')->format('Y-m') }}" required></div>
         <div class="col-md-6"><label class="form-label" for="salaryEmployee">Employee</label><select class="form-select" id="salaryEmployee" name="employee_id" required><option value="">Select employee</option>@foreach($employees as $employee)<option value="{{ $employee->id }}">{{ $employee->employee_code }} — {{ $employee->name }}</option>@endforeach</select></div>
+        <div class="col-12"><div id="salaryEmployeeLoader" class="d-none d-flex align-items-center justify-content-center gap-2 py-2 text-primary" role="status" aria-live="polite"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Loading employee details…</span></div><div id="salaryEmployeeLoadError" class="alert alert-danger py-2 mb-0 d-none" role="alert"></div></div>
         <div class="col-md-4"><label class="form-label" for="employeeDesignation">Designation</label><input class="form-control" id="employeeDesignation" readonly placeholder="Auto-filled"></div>
+        <div class="col-md-4"><label class="form-label" for="employeeCategory">Employee category</label><input class="form-control" id="employeeCategory" readonly placeholder="Auto-filled"></div>
         <div class="col-md-4"><label class="form-label" for="employeeDailyRate">Daily wages rate</label><input class="form-control" id="employeeDailyRate" readonly placeholder="Auto-filled"></div>
         <div class="col-md-4"><label class="form-label" for="employeeContract">Assigned contract</label><input class="form-control" id="employeeContract" readonly placeholder="No active assignment"></div>
         <div class="col-md-4"><label class="form-label" for="workingDays">Working days</label><input class="form-control" id="workingDays" name="working_days" type="number" min="1" max="31" step="1" required placeholder="Enter days worked"></div>
         <div class="col-md-4"><label class="form-label" for="earnedWages">Earned wages</label><input class="form-control salary-calculated" id="earnedWages" readonly value="₹0.00"></div>
         <div class="col-md-4"><label class="form-label" for="salaryGross">Gross salary including bonus</label><input class="form-control salary-calculated" id="salaryGross" readonly value="₹0.00"></div>
         <div class="col-12"><div class="salary-section-label">Statutory contributions</div></div>
-        <div class="col-md-3"><label class="form-label">PF · employee</label><input class="form-control salary-calculated" id="pfEmployee" readonly value="₹0.00"></div>
+        <div class="col-md-3"><label class="form-label">PF · employee</label><input class="form-control salary-calculated" id="pfEmployee" readonly value="₹0.00"><div class="form-text" id="epfStatusNote">EPF applies according to the salary rules master.</div></div>
         <div class="col-md-3"><label class="form-label">PF · employer</label><input class="form-control salary-calculated" id="pfEmployer" readonly value="₹0.00"></div>
-        <div class="col-md-3"><label class="form-label">ESI · employee</label><input class="form-control salary-calculated" id="esiEmployee" readonly value="₹0.00"></div>
+        <div class="col-md-3"><label class="form-label">ESI · employee</label><input class="form-control salary-calculated" id="esiEmployee" readonly value="₹0.00"><div class="form-text" id="esiStatusNote">ESI applies when eligible under the salary rules master.</div></div>
         <div class="col-md-3"><label class="form-label">ESI · employer</label><input class="form-control salary-calculated" id="esiEmployer" readonly value="₹0.00"></div>
         <div class="col-md-4"><label class="form-label" for="bonusAmount">Bonus amount (₹)</label><input class="form-control" id="bonusAmount" name="bonus_amount" type="number" min="0" step="0.01" value="0" disabled><div class="form-text" id="bonusEligibilityNote">Select an employee and enter working days to check eligibility.</div></div>
         <div class="col-md-4"><label class="form-label">Total employee deductions</label><input class="form-control salary-calculated" id="salaryDeductions" readonly value="₹0.00"></div>
@@ -57,8 +59,57 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const monthFilter = document.getElementById('salaryMonthFilter');
+    const exportButton = document.getElementById('salaryExportButton');
+    const exportForm = document.getElementById('salaryFilterForm');
+    const selectPage = document.getElementById('salarySelectPage');
+    const selectionMessage = document.getElementById('salaryExportSelectionMessage');
+    const rowCheckboxes = Array.from(document.querySelectorAll('.salary-export-checkbox'));
+    const selectionKey = () => `salary-form-b-selection-${monthFilter.value || 'all'}`;
+    const readSelection = () => {
+        try { return new Set(JSON.parse(sessionStorage.getItem(selectionKey()) || '[]').map(String)); }
+        catch { return new Set(); }
+    };
+    let selectedEmployees = readSelection();
+    const saveSelection = () => sessionStorage.setItem(selectionKey(), JSON.stringify([...selectedEmployees]));
+    const refreshSelection = () => {
+        rowCheckboxes.forEach(checkbox => { checkbox.checked = selectedEmployees.has(checkbox.value); });
+        const selectedOnPage = rowCheckboxes.filter(checkbox => checkbox.checked).length;
+        selectPage.checked = rowCheckboxes.length > 0 && selectedOnPage === rowCheckboxes.length;
+        selectPage.indeterminate = selectedOnPage > 0 && selectedOnPage < rowCheckboxes.length;
+        selectionMessage.textContent = selectedEmployees.size
+            ? `${selectedEmployees.size} employee(s) selected for export.`
+            : 'No employees selected: export all salaries for the chosen month.';
+    };
+    refreshSelection();
+    selectPage.addEventListener('change', () => {
+        rowCheckboxes.forEach(checkbox => selectPage.checked ? selectedEmployees.add(checkbox.value) : selectedEmployees.delete(checkbox.value));
+        saveSelection(); refreshSelection();
+    });
+    rowCheckboxes.forEach(checkbox => checkbox.addEventListener('change', () => {
+        if (checkbox.checked) selectedEmployees.add(checkbox.value);
+        else selectedEmployees.delete(checkbox.value);
+        saveSelection(); refreshSelection();
+    }));
+    monthFilter.addEventListener('input', () => {
+        exportButton.disabled = !monthFilter.value;
+        selectedEmployees = readSelection();
+        refreshSelection();
+    });
+    exportButton.addEventListener('click', () => {
+        exportForm.querySelectorAll('[data-export-employee-id]').forEach(input => input.remove());
+        selectedEmployees.forEach(employeeId => {
+            const input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'employee_ids[]'; input.value = employeeId;
+            input.dataset.exportEmployeeId = 'true'; exportForm.append(input);
+        });
+    });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('salaryViewModal');
-    const fields = [['Pay month','salary_month','month'],['Employee code','employee_code_snapshot'],['Employee name','employee_name_snapshot'],['Designation','designation_snapshot'],['Assigned contract','contract_number_snapshot'],['Working days','working_days'],['Daily wages rate','daily_wages_rate','money'],['Earned wages','earned_wages','money'],['PF wage basis','pf_wage_basis','money'],['PF employee rate','pf_employee_rate','percent'],['PF employee contribution','pf_employee_amount','money'],['PF employer rate','pf_employer_rate','percent'],['PF employer contribution','pf_employer_amount','money'],['ESI applicable','esi_applicable','bool'],['ESI employee rate','esi_employee_rate','percent'],['ESI employee contribution','esi_employee_amount','money'],['ESI employer rate','esi_employer_rate','percent'],['ESI employer contribution','esi_employer_amount','money'],['Bonus eligible','bonus_eligible','bool'],['Bonus amount','bonus_amount','money'],['Gross salary','gross_salary','money'],['Total deductions','total_deductions','money'],['Net salary','net_salary','money']];
+    const fields = [['Pay month','salary_month','month'],['Employee code','employee_code_snapshot'],['Employee name','employee_name_snapshot'],['Designation','designation_snapshot'],['Assigned contract','contract_number_snapshot'],['Working days','working_days'],['Daily wages rate','daily_wages_rate','money'],['Earned wages','earned_wages','money'],['PF wage basis','pf_wage_basis','money'],['EPF exempt for employee','epf_exempt','bool'],['PF employee rate','pf_employee_rate','percent'],['PF employee contribution','pf_employee_amount','money'],['PF employer rate','pf_employer_rate','percent'],['PF employer contribution','pf_employer_amount','money'],['ESI exempt for employee','esi_exempt','bool'],['ESI applicable','esi_applicable','bool'],['ESI employee rate','esi_employee_rate','percent'],['ESI employee contribution','esi_employee_amount','money'],['ESI employer rate','esi_employer_rate','percent'],['ESI employer contribution','esi_employer_amount','money'],['Bonus eligible','bonus_eligible','bool'],['Bonus amount','bonus_amount','money'],['Gross salary','gross_salary','money'],['Total deductions','total_deductions','money'],['Net salary','net_salary','money']];
     modal.addEventListener('show.bs.modal', event => {
         const record = JSON.parse(event.relatedTarget.dataset.record), rows = document.getElementById('salaryViewRows'); rows.replaceChildren();
         document.getElementById('salaryViewTitle').textContent = `Salary · ${record.employee_code_snapshot || ''} · ${record.salary_month || ''}`;
@@ -90,22 +141,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewUrl = @json(url('/salary/employees'));
     const deleteModal = document.getElementById('deleteSalaryModal');
     const deleteForm = document.getElementById('deleteSalaryForm');
+    const employeeLoader = document.getElementById('salaryEmployeeLoader');
+    const employeeLoadError = document.getElementById('salaryEmployeeLoadError');
     let previewAbort;
     const money = value => new Intl.NumberFormat('en-IN', {style:'currency', currency:'INR', minimumFractionDigits:2}).format(Number(value || 0));
     const putMoney = (id, value) => { document.getElementById(id).value = money(value); };
 
     async function updatePreview() {
         const id = employeeSelect.value;
-        const days = daysInput.value;
-        if (!id || !monthInput.value || !days) return;
+        const days = daysInput.value || '0';
         previewAbort?.abort();
-        previewAbort = new AbortController();
+        if (!id || !monthInput.value) {
+            previewAbort = null;
+            employeeLoader.classList.add('d-none');
+            employeeLoadError.classList.add('d-none');
+            ['employeeDesignation','employeeCategory','employeeDailyRate','employeeContract'].forEach(fieldId => document.getElementById(fieldId).value = '');
+            return;
+        }
+        const request = new AbortController();
+        previewAbort = request;
+        employeeLoadError.classList.add('d-none');
+        employeeLoader.classList.remove('d-none');
+        ['employeeDesignation','employeeCategory','employeeDailyRate','employeeContract'].forEach(fieldId => document.getElementById(fieldId).value = '');
+        ['earnedWages','salaryGross','pfEmployee','pfEmployer','esiEmployee','esiEmployer','salaryDeductions','salaryNet'].forEach(fieldId => putMoney(fieldId, 0));
         try {
             const query = new URLSearchParams({salary_month:monthInput.value, working_days:days});
-            const response = await fetch(`${previewUrl}/${id}/preview?${query}`, {headers:{'Accept':'application/json'}, signal:previewAbort.signal});
-            if (!response.ok) return;
+            const response = await fetch(`${previewUrl}/${id}/preview?${query}`, {headers:{'Accept':'application/json'}, signal:request.signal});
+            if (!response.ok) throw new Error('Unable to load this employee’s salary details. Please try again.');
             const data = await response.json();
+            if (previewAbort !== request) return;
             document.getElementById('employeeDesignation').value = data.designation || '—';
+            document.getElementById('employeeCategory').value = data.employee_category ? String(data.employee_category).replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase()) : '—';
             document.getElementById('employeeDailyRate').value = `${money(data.daily_wages_rate)} / day`;
             document.getElementById('employeeContract').value = data.contract_number || 'No active assignment';
             putMoney('earnedWages', data.earned_wages);
@@ -113,6 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
             putMoney('pfEmployer', data.pf_employer_amount);
             putMoney('esiEmployee', data.esi_employee_amount);
             putMoney('esiEmployer', data.esi_employer_amount);
+            document.getElementById('epfStatusNote').textContent = data.epf_exempt ? 'EPF is excluded for this employee; employee and employer contributions are both zero.' : 'EPF applies according to the salary rules master.';
+            document.getElementById('esiStatusNote').textContent = data.esi_exempt ? 'ESI is excluded for this employee; employee and employer contributions are both zero.' : (data.esi_applicable ? 'ESI applies under the current salary rules.' : 'ESI is not applicable under the current salary rules.');
             const bonus = data.bonus_eligible ? Number(bonusInput.value || 0) : 0;
             bonusInput.disabled = !data.bonus_eligible;
             if (!data.bonus_eligible) bonusInput.value = '0';
@@ -124,7 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
             putMoney('salaryGross', Number(data.earned_wages) + bonus);
             putMoney('salaryNet', Number(data.earned_wages) + bonus - deductions);
         } catch (error) {
-            if (error.name !== 'AbortError') console.error(error);
+            if (error.name !== 'AbortError' && previewAbort === request) {
+                employeeLoadError.textContent = error.message || 'Unable to load employee details. Please try again.';
+                employeeLoadError.classList.remove('d-none');
+            }
+        } finally {
+            if (previewAbort === request) employeeLoader.classList.add('d-none');
         }
     }
 
@@ -143,9 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
         daysInput.value = record?.working_days || '';
         bonusInput.value = record?.bonus_amount || '0';
         bonusInput.disabled = true;
-        ['employeeDesignation','employeeDailyRate','employeeContract'].forEach(id => document.getElementById(id).value = '');
+        ['employeeDesignation','employeeCategory','employeeDailyRate','employeeContract'].forEach(id => document.getElementById(id).value = '');
         ['earnedWages','salaryGross','pfEmployee','pfEmployer','esiEmployee','esiEmployer','salaryDeductions','salaryNet'].forEach(id => putMoney(id, 0));
+        document.getElementById('epfStatusNote').textContent = 'EPF applies according to the salary rules master.';
+        document.getElementById('esiStatusNote').textContent = 'ESI applies when eligible under the salary rules master.';
         note.textContent = 'Select an employee and enter working days to check eligibility.';
+        employeeLoader.classList.add('d-none');
+        employeeLoadError.classList.add('d-none');
         if (editing) updatePreview();
     });
     deleteModal.addEventListener('show.bs.modal', event => {

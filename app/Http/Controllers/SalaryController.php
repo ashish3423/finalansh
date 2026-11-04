@@ -8,6 +8,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class SalaryController extends Controller
 {
@@ -32,6 +34,94 @@ class SalaryController extends Controller
         $employees = DB::table('employees')->where('status', 'active')->orderBy('employee_code')->get(['id', 'employee_code', 'name']);
 
         return view('salary.index', compact('salaries', 'employees'));
+    }
+
+    public function exportFormB(Request $request)
+    {
+        $filters = $request->validate([
+            'month' => ['required', 'date_format:Y-m'],
+            'search' => ['nullable', 'string', 'max:160'],
+            'employee_ids' => ['nullable', 'array'],
+            'employee_ids.*' => ['integer', 'distinct', 'exists:employees,id'],
+        ]);
+        $month = Carbon::createFromFormat('Y-m', $filters['month'])->startOfMonth();
+        $query = DB::table('employee_salaries')
+            ->where('salary_month', $month->toDateString());
+
+        if (!empty($filters['employee_ids'])) {
+            $query->whereIn('employee_id', $filters['employee_ids']);
+        }
+
+        if (filled($filters['search'] ?? null)) {
+            $search = trim($filters['search']);
+            $query->where(function ($builder) use ($search) {
+                $builder->where('employee_name_snapshot', 'like', '%'.$search.'%')
+                    ->orWhere('employee_code_snapshot', 'like', '%'.$search.'%')
+                    ->orWhere('designation_snapshot', 'like', '%'.$search.'%')
+                    ->orWhere('contract_number_snapshot', 'like', '%'.$search.'%');
+            });
+        }
+
+        $salaries = $query->orderBy('employee_name_snapshot')->get();
+        $templatePath = resource_path('templates/form-b-wage-register.xlsx');
+        abort_unless(is_file($templatePath), 500, 'The Form B wage register template is missing.');
+
+        $workbook = IOFactory::load($templatePath);
+        $sheet = $workbook->getActiveSheet();
+        $sheet->setTitle($month->format('M y'));
+        $sheet->setCellValue('A7', sprintf(
+            "NAME OF ESTABLISHMENT: M/s ANSH ENTERPRISES\nFor the period from: %s to %s",
+            $month->format('d.m.Y'),
+            $month->copy()->endOfMonth()->format('d.m.Y')
+        ));
+
+        $baseDataRow = 11;
+        $templateLastRow = 20;
+        foreach ($salaries as $index => $salary) {
+            $row = $baseDataRow + $index;
+            if ($row > $templateLastRow) {
+                $sheet->duplicateStyle($sheet->getStyle("A{$templateLastRow}:AA{$templateLastRow}"), "A{$row}:AA{$row}");
+                $sheet->getRowDimension($row)->setRowHeight($sheet->getRowDimension($templateLastRow)->getRowHeight());
+            }
+
+            $sheet->setCellValue("A{$row}", $index + 1);
+            $sheet->setCellValue("B{$row}", mb_strtoupper($salary->employee_name_snapshot));
+            $sheet->setCellValue("C{$row}", (float) $salary->daily_wages_rate);
+            $sheet->setCellValue("D{$row}", (int) $salary->working_days);
+            $sheet->setCellValue("E{$row}", '-');
+            $sheet->setCellValue("F{$row}", "=C{$row}*D{$row}");
+            $sheet->setCellValue("G{$row}", '-');
+            foreach (['H', 'I', 'J'] as $column) {
+                $sheet->setCellValue("{$column}{$row}", 'NA');
+            }
+            $sheet->setCellValue("K{$row}", (float) $salary->bonus_amount);
+            $sheet->setCellValue("L{$row}", 0);
+            $sheet->setCellValue("M{$row}", 0);
+            $sheet->setCellValue("N{$row}", "=F{$row}+K{$row}+L{$row}+M{$row}");
+            $sheet->setCellValue("O{$row}", (float) $salary->pf_employee_amount);
+            $sheet->setCellValue("P{$row}", (float) $salary->esi_employee_amount);
+            foreach (['Q', 'R', 'S', 'T', 'U'] as $column) {
+                $sheet->setCellValue("{$column}{$row}", 'NA');
+            }
+            $sheet->setCellValue("V{$row}", "=SUM(O{$row}:U{$row})");
+            $sheet->setCellValue("W{$row}", "=N{$row}-V{$row}");
+            $sheet->setCellValue("X{$row}", 'NA');
+            $sheet->setCellValue("Y{$row}", null);
+            $sheet->setCellValue("Z{$row}", null);
+            $sheet->setCellValue("AA{$row}", null);
+        }
+
+        $lastRow = max($templateLastRow, $baseDataRow + $salaries->count() - 1);
+        $sheet->getPageSetup()->setPrintArea("A1:AA{$lastRow}");
+        $workbook->getProperties()->setTitle('Form B Wage Register · ANSH Enterprises');
+        $workbook->getProperties()->setSubject('Wage register for '.$month->format('F Y'));
+        $fileName = 'Form-B-Wage-Register-'.$month->format('M-Y').'.xlsx';
+
+        return response()->streamDownload(function () use ($workbook): void {
+            (new Xlsx($workbook))->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function rules()
@@ -175,10 +265,12 @@ class SalaryController extends Controller
     private function calculationPreview(object $employee, array $settings, Carbon $month, int $workingDays): array
     {
         $earnedWages = round((float) $employee->daily_wages_rate * $workingDays, 2);
+        $epfExempt = (bool) $employee->epf_exempt;
+        $esiExempt = (bool) $employee->esi_exempt;
         $pfBasis = min($earnedWages, (float) $settings['pf_monthly_wage_ceiling']);
-        $pfEmployee = round($pfBasis * (float) $settings['pf_employee_rate'] / 100);
-        $pfEmployer = round($pfBasis * (float) $settings['pf_employer_rate'] / 100);
-        $esiApplicable = $earnedWages > 0 && $earnedWages <= (float) $settings['esi_monthly_wage_limit'];
+        $pfEmployee = $epfExempt ? 0 : round($pfBasis * (float) $settings['pf_employee_rate'] / 100);
+        $pfEmployer = $epfExempt ? 0 : round($pfBasis * (float) $settings['pf_employer_rate'] / 100);
+        $esiApplicable = !$esiExempt && $earnedWages > 0 && $earnedWages <= (float) $settings['esi_monthly_wage_limit'];
         $esiEmployee = $esiApplicable && (float) $employee->daily_wages_rate > (float) $settings['esi_employee_exemption_daily_wage']
             ? round($earnedWages * (float) $settings['esi_employee_rate'] / 100)
             : 0;
@@ -208,17 +300,20 @@ class SalaryController extends Controller
             'employee_code' => $employee->employee_code,
             'employee_name' => $employee->name,
             'designation' => $employee->role,
+            'employee_category' => $employee->employee_category,
             'contract_id' => $employee->contract_id,
             'contract_number' => $employee->contract_number,
             'working_days' => $workingDays,
             'daily_wages_rate' => (float) $employee->daily_wages_rate,
             'earned_wages' => $earnedWages,
             'pf_wage_basis' => $pfBasis,
+            'epf_exempt' => $epfExempt,
             'pf_employee_rate' => (float) $settings['pf_employee_rate'],
             'pf_employer_rate' => (float) $settings['pf_employer_rate'],
             'pf_employee_amount' => $pfEmployee,
             'pf_employer_amount' => $pfEmployer,
             'esi_applicable' => $esiApplicable,
+            'esi_exempt' => $esiExempt,
             'esi_employee_rate' => (float) $settings['esi_employee_rate'],
             'esi_employer_rate' => (float) $settings['esi_employer_rate'],
             'esi_employee_amount' => $esiEmployee,
@@ -275,11 +370,13 @@ class SalaryController extends Controller
             'daily_wages_rate' => $calculation['daily_wages_rate'],
             'earned_wages' => $calculation['earned_wages'],
             'pf_wage_basis' => $calculation['pf_wage_basis'],
+            'epf_exempt' => $calculation['epf_exempt'],
             'pf_employee_rate' => $calculation['pf_employee_rate'],
             'pf_employer_rate' => $calculation['pf_employer_rate'],
             'pf_employee_amount' => $calculation['pf_employee_amount'],
             'pf_employer_amount' => $calculation['pf_employer_amount'],
             'esi_applicable' => $calculation['esi_applicable'],
+            'esi_exempt' => $calculation['esi_exempt'],
             'esi_employee_rate' => $calculation['esi_employee_rate'],
             'esi_employer_rate' => $calculation['esi_employer_rate'],
             'esi_employee_amount' => $calculation['esi_employee_amount'],

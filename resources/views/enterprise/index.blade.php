@@ -13,6 +13,22 @@
             ['key' => 'phone', 'label' => 'Phone'],
             ['key' => 'email', 'label' => 'Email'],
             ['key' => 'license_number', 'label' => 'Driving / professional licence #'],
+            ['key' => 'employee_category', 'label' => 'Employee category'],
+            ['key' => 'work_location', 'label' => 'Work location'],
+            ['key' => 'department', 'label' => 'Department'],
+            ['key' => 'aadhar_number', 'label' => 'Aadhar number'],
+            ['key' => 'account_number', 'label' => 'Account number'],
+            ['key' => 'ifsc_code', 'label' => 'IFSC code'],
+            ['key' => 'uan_number', 'label' => 'UAN number'],
+            ['key' => 'esi_number', 'label' => 'ESI number'],
+            ['key' => 'ref_num1', 'label' => 'Reference number 1'],
+            ['key' => 'ref_num2', 'label' => 'Reference number 2'],
+            ['key' => 'id_card_status', 'label' => 'ID card status'],
+            ['key' => 'dress_status', 'label' => 'Dress status'],
+            ['key' => 'epf_exempt', 'label' => 'EPF exempt for this employee', 'type' => 'boolean'],
+            ['key' => 'esi_exempt', 'label' => 'ESI exempt for this employee', 'type' => 'boolean'],
+            ['key' => 'police_verification_status', 'label' => 'Police verification completed'],
+            ['key' => 'police_verification_certificate_number', 'label' => 'Police verification certificate number'],
             ['key' => 'joining_date', 'label' => 'Joining date', 'type' => 'date'],
             ['key' => 'daily_wages_rate', 'label' => 'Daily wages rate', 'type' => 'currency'],
             ['key' => 'photo_path', 'label' => 'Photo', 'type' => 'photo'],
@@ -105,14 +121,18 @@
                 @if ($module === 'employees')<div class="alert alert-info small py-2 mb-3"><i class="bi bi-magic me-1"></i>Employee code is generated automatically when this employee is saved.</div>@endif
                 <div class="row g-3">
                 @foreach ($definition['fields'] as $name => $field)
-                    @php [$label, $type] = $field; $isSelect = in_array($type, ['select', 'relation', 'relation_optional'], true); @endphp
-                    <div class="col-md-{{ in_array($type, ['textarea', 'file'], true) ? '12' : '6' }}" @if ($type === 'edit-date') data-edit-only-field @endif>
+                    @php [$label, $type] = $field; $isSelect = in_array($type, ['select', 'edit-select', 'relation', 'relation_optional'], true); @endphp
+                    @if ($type === 'edit-select')<input type="hidden" id="field-{{ $name }}-create" name="{{ $name }}" value="active" data-create-status>@endif
+                    <div class="col-md-{{ in_array($type, ['textarea', 'file'], true) ? '12' : '6' }} @if ($type === 'conditional-text') d-none @endif @if (in_array($type, ['edit-date', 'edit-select'], true)) d-none @endif" @if (in_array($type, ['edit-date', 'edit-select'], true)) data-edit-only-field @endif @if ($type === 'conditional-text') data-condition-field="field-{{ $field[3] }}" data-condition-value="{{ $field[4] }}" data-condition-required="{{ str_starts_with($field[2], 'required_if:') ? 'true' : 'false' }}" @endif>
                         <label class="form-label" for="field-{{ $name }}">{{ $label }}</label>
                         @if ($isSelect)
-                            <select class="form-select" id="field-{{ $name }}" name="{{ $name }}" {{ str_starts_with($field[2], 'required') ? 'required' : '' }}>
+                            <select class="form-select" id="field-{{ $name }}" name="{{ $name }}" @if ($type === 'edit-select') data-edit-only-select disabled @endif {{ str_starts_with($field[2], 'required') ? 'required' : '' }}>
                                 @if ($type === 'relation_optional') <option value="">Not assigned</option> @elseif ($type === 'relation') <option value="">Select {{ strtolower($label) }}</option> @endif
-                                @foreach (($type === 'select' ? $field[3] : ($options[$name] ?? [])) as $value => $optionLabel)<option value="{{ $value }}">{{ $optionLabel }}</option>@endforeach
+                                @foreach (in_array($type, ['select', 'edit-select'], true) ? $field[3] : ($options[$name] ?? []) as $value => $optionLabel)<option value="{{ $value }}">{{ $optionLabel }}</option>@endforeach
                             </select>
+                        @elseif ($type === 'switch')
+                            <input type="hidden" name="{{ $name }}" value="{{ $field[4] ?? 0 }}">
+                            <div class="form-check form-switch pt-2"><input class="form-check-input" id="field-{{ $name }}" type="checkbox" name="{{ $name }}" value="{{ $field[3] ?? 1 }}" data-checked-value="{{ $field[3] ?? 1 }}" data-unchecked-value="{{ $field[4] ?? 0 }}" role="switch" aria-label="{{ $label }}"></div>
                         @elseif ($type === 'textarea')
                             <textarea class="form-control" id="field-{{ $name }}" name="{{ $name }}" rows="3" maxlength="3000"></textarea>
                         @elseif ($type === 'file')
@@ -120,6 +140,8 @@
                             <input class="form-control" id="field-{{ $name }}" type="file" name="{{ $name }}" accept="image/jpeg,image/png,image/webp">
                         @elseif ($type === 'edit-date')
                             <input class="form-control" id="field-{{ $name }}" type="date" name="{{ $name }}">
+                        @elseif ($type === 'conditional-text')
+                            <input class="form-control" id="field-{{ $name }}" type="text" name="{{ $name }}" maxlength="100">
                         @else
                             <input class="form-control" id="field-{{ $name }}" type="{{ $type }}" name="{{ $name }}" step="{{ $type === 'number' ? '0.01' : '' }}" {{ str_starts_with($field[2], 'required') ? 'required' : '' }}>
                         @endif
@@ -179,21 +201,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoPreview = document.getElementById('employeePhotoPreview');
     const photoPlaceholder = document.getElementById('employeePhotoPlaceholder');
 
+    const syncConditionalFields = () => form.querySelectorAll('[data-condition-field]').forEach(wrapper => {
+        const controller = document.getElementById(wrapper.dataset.conditionField);
+        const input = wrapper.querySelector('input, select, textarea');
+        const controllerValue = controller?.type === 'checkbox'
+            ? (controller.checked ? controller.dataset.checkedValue : controller.dataset.uncheckedValue)
+            : controller?.value;
+        const visible = controllerValue === wrapper.dataset.conditionValue;
+        wrapper.classList.toggle('d-none', !visible);
+        if (input && wrapper.dataset.conditionRequired === 'true') input.required = visible;
+        if (!visible && input) input.value = '';
+    });
+
     modal.addEventListener('show.bs.modal', event => {
         const trigger = event.relatedTarget;
         const editing = trigger?.dataset.mode === 'edit';
         const record = editing ? JSON.parse(trigger.dataset.record) : defaults;
         title.textContent = `${editing ? 'Edit' : 'Add'} {{ $definition['singular'] }}`;
-        form.querySelectorAll('[data-edit-only-field]').forEach(field => field.classList.toggle('d-none', !editing));
+        form.querySelectorAll('[data-edit-only-field]').forEach(field => {
+            field.classList.toggle('d-none', !editing);
+            const select = field.querySelector('[data-edit-only-select]');
+            if (select) select.disabled = !editing;
+        });
+        form.querySelectorAll('[data-create-status]').forEach(input => input.disabled = editing);
         form.action = editing ? `${baseUrl}/${trigger.dataset.id}` : baseUrl;
         method.value = editing ? 'PUT' : 'POST';
         form.querySelectorAll('[name]').forEach(input => {
             if (input.name === '_token' || input.name === '_method') return;
+            if (input.type === 'hidden') return;
+            if (input.type === 'checkbox') { input.checked = String(record[input.name]) === input.dataset.checkedValue || record[input.name] === true; return; }
             if (input.type === 'file') return;
             let value = record[input.name] ?? '';
             if (input.type === 'datetime-local' && value) value = String(value).replace(' ', 'T').slice(0, 16);
             input.value = value;
         });
+        syncConditionalFields();
         if (photoInput) {
             photoInput.value = '';
             const imageUrl = editing && record.photo_path ? `${@json(asset('storage'))}/${record.photo_path}` : '';
@@ -201,6 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
             photoPreview.classList.toggle('d-none', !imageUrl);
             photoPlaceholder.classList.toggle('d-none', !!imageUrl);
         }
+    });
+    form.addEventListener('change', event => {
+        if (event.target.matches('[id^="field-"]')) syncConditionalFields();
     });
     if (photoInput) {
         photoInput.addEventListener('change', () => {
@@ -255,6 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 value.textContent = new Intl.DateTimeFormat('en-IN', {day:'2-digit', month:'short', year:'numeric'}).format(new Date(`${content}T00:00:00`));
             } else if (field.type === 'currency' && content !== null && content !== '') {
                 value.textContent = `${new Intl.NumberFormat('en-IN', {style:'currency', currency:'INR'}).format(Number(content))} / day`;
+            } else if (field.type === 'boolean') {
+                value.textContent = content ? 'Yes' : 'No';
+            } else if (['employee_category', 'id_card_status', 'dress_status', 'police_verification_status'].includes(field.key) && content) {
+                value.textContent = String(content).replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
             } else if (field.type === 'status' && content) {
                 value.textContent = String(content).replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
             } else {

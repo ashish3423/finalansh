@@ -25,7 +25,7 @@
           href="{{ asset('vendors/@coreui/chartjs/css/coreui-chartjs.css') }}">
 
     <script src="{{ asset('js/config.js') }}"></script>
-    <script src="{{ asset('js/color-modes.js') }}"></script>
+    <script src="{{ asset('js/color-modes.js') }}?v=20261104-1"></script>
 </head>
 
 <body>

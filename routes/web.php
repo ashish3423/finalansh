@@ -22,6 +22,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/', [EnterpriseController::class, 'dashboard'])->name('dashboard');
 
     Route::get('/salary', [SalaryController::class, 'index'])->name('salary.index');
+    Route::get('/salary/export/form-b', [SalaryController::class, 'exportFormB'])->name('salary.export.form-b');
     Route::get('/salary/rules', [SalaryController::class, 'rules'])->name('salary.rules');
     Route::get('/salary/employees/{employee}/preview', [SalaryController::class, 'employeeInfo'])->name('salary.employee-preview');
     Route::middleware('can:manage-records')->group(function () {

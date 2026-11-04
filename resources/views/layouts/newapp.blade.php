@@ -24,11 +24,11 @@
   
 <link rel="stylesheet"
       href="{{ asset('css/employee-management.css') }}">
-<link rel="stylesheet" href="{{ asset('css/enterprise-portal.css') }}?v=20261103-6">
+<link rel="stylesheet" href="{{ asset('css/enterprise-portal.css') }}?v=20261104-1">
 
 
     <!-- <script src="{{ asset('js/config.js') }}"></script> -->
-    <script src="{{ asset('js/color-modes.js') }}"></script>
+    <script src="{{ asset('js/color-modes.js') }}?v=20261104-1"></script>
 </head>
 
 <body>

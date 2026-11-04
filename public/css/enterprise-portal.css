@@ -94,7 +94,7 @@
 .employee-details-table td { padding:1rem 1.15rem; color:#273651; font-size:.86rem; white-space:pre-wrap; overflow-wrap:anywhere; vertical-align:middle; }
 .employee-detail-photo { display:block; width:96px; height:96px; border:1px solid #e3e9f2; border-radius:12px; object-fit:cover; }
 .salary-month-filter { width:165px; }
-.salary-table { min-width:1180px; }
+.salary-table { min-width:1230px; }
 .salary-calculated { color:#26344d!important; background:#f8faff!important; font-weight:650; }
 .salary-net { color:#087443!important; background:#e8f7ef!important; font-weight:800; }
 .salary-section-label { padding:.75rem 0 .1rem; border-bottom:1px solid #e9edf5; color:#293953; font-size:.82rem; font-weight:750; }

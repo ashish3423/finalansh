@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="{{ asset('css/employee-management.css') }}">
     <link rel="stylesheet" href="{{ asset('css/enterprise-portal.css') }}">
     <script src="{{ asset('js/config.js') }}"></script>
-    <script src="{{ asset('js/color-modes.js') }}"></script>
+    <script src="{{ asset('js/color-modes.js') }}?v=20261104-1"></script>
     <link rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
