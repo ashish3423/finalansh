@@ -9,6 +9,7 @@
         <div><div class="eyebrow">ANSH ENTERPRISES · OPERATIONS</div><h3 class="mb-1">Good to see you</h3><p class="text-muted mb-0">A clear view of your contracts, workforce, fleet, and services.</p></div>
         <a class="btn btn-primary" href="{{ route('resources.index', 'contracts') }}"><i class="bi bi-file-earmark-plus me-1"></i> Manage contracts</a>
     </div>
+    @if (session('status'))<div class="alert alert-info alert-dismissible fade show" role="status">{{ session('status') }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>@endif
 
     <div class="row g-3 mb-4">
         @foreach ([['contracts','Total contracts','bi-file-earmark-text','blue'],['active_contracts','Active contracts','bi-activity','green'],['employees','Active employees','bi-people','violet'],['vehicles','Active fleet vehicles','bi-truck','orange'],['service_logs','Services today','bi-journal-check','teal'],['pending_invoices','Invoices to follow up','bi-receipt','rose']] as [$key,$label,$icon,$color])

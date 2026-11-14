@@ -7,6 +7,7 @@
 @if ($module === 'employees')
     @php
         $employeeDetailFields = [
+            ['key' => 'photo_path', 'label' => 'Photo', 'type' => 'photo'],
             ['key' => 'employee_code', 'label' => 'Employee code'],
             ['key' => 'name', 'label' => 'Full name'],
             ['key' => 'role', 'label' => 'Role / designation'],
@@ -31,7 +32,6 @@
             ['key' => 'police_verification_certificate_number', 'label' => 'Police verification certificate number'],
             ['key' => 'joining_date', 'label' => 'Joining date', 'type' => 'date'],
             ['key' => 'daily_wages_rate', 'label' => 'Daily wages rate', 'type' => 'currency'],
-            ['key' => 'photo_path', 'label' => 'Photo', 'type' => 'photo'],
             ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
             ['key' => 'address', 'label' => 'Address'],
         ];
@@ -469,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('recordViewModal');
     const rows = document.getElementById('recordDetailsRows');
     const fields = @json($recordDetailFields);
+    const todayUtc = Date.parse(`${@json(now('Asia/Kolkata')->toDateString())}T00:00:00Z`);
     modal.addEventListener('show.bs.modal', event => {
         const record = JSON.parse(event.relatedTarget.dataset.record);
         rows.replaceChildren();
@@ -481,11 +482,27 @@ document.addEventListener('DOMContentLoaded', () => {
             let content = record[field.key];
             if (content !== null && content !== undefined && content !== '') {
                 if (field.type === 'select' || field.type.startsWith('relation')) content = field.options?.[content] ?? content;
-                if (field.type === 'date') content = new Intl.DateTimeFormat('en-IN', {day:'2-digit', month:'short', year:'numeric'}).format(new Date(`${content}T00:00:00`));
+                if (field.type === 'date' && ['insurance_expiry', 'permit_expiry', 'fitness_expiry'].includes(field.key)) {
+                    const expiryDate = String(content).slice(0, 10);
+                    const expiryUtc = Date.parse(`${expiryDate}T00:00:00Z`);
+                    const daysRemaining = Math.round((expiryUtc - todayUtc) / 86400000);
+                    const formattedDate = new Intl.DateTimeFormat('en-IN', {day:'2-digit', month:'short', year:'numeric'}).format(new Date(expiryUtc));
+                    value.classList.add('expiry-value');
+                    const date = document.createElement('span');
+                    date.textContent = formattedDate;
+                    value.append(date);
+                    if (daysRemaining <= 7) {
+                        const badge = document.createElement('span');
+                        badge.className = `expiry-days-pill ${daysRemaining < 0 ? 'expired' : (daysRemaining === 0 ? 'today' : 'soon')}`;
+                        badge.textContent = daysRemaining < 0 ? `Expired ${Math.abs(daysRemaining)} day(s) ago` : (daysRemaining === 0 ? 'Expires today' : `${daysRemaining} day(s) left`);
+                        value.append(badge);
+                    }
+                }
+                else if (field.type === 'date') content = new Intl.DateTimeFormat('en-IN', {day:'2-digit', month:'short', year:'numeric'}).format(new Date(`${content}T00:00:00`));
                 else if (field.type === 'datetime-local' || field.type === 'datetime') content = new Intl.DateTimeFormat('en-IN', {dateStyle:'medium', timeStyle:'short'}).format(new Date(String(content).replace(' ', 'T')));
                 else if (field.type === 'number' && /amount|rate|value|salary|wage|cost/i.test(field.key)) content = new Intl.NumberFormat('en-IN', {style:'currency', currency:'INR'}).format(Number(content));
                 else if (field.key === 'status' || field.key === 'service_type' || field.key === 'payment_method') content = String(content).replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
-                value.textContent = content;
+                if (!(field.type === 'date' && ['insurance_expiry', 'permit_expiry', 'fitness_expiry'].includes(field.key))) value.textContent = content;
             } else value.textContent = '—';
             row.append(label, value); rows.append(row);
         });

@@ -11,7 +11,7 @@
             <li class="nav-item"><a class="nav-link {{ request()->is($key) ? 'active' : '' }}" href="{{ route('resources.index', $key) }}"><i class="bi {{ $icon }} nav-icon"></i> {{ $label }}</a></li>
         @endforeach
         <li class="nav-title">Service Operations</li>
-        @foreach (['employees' => ['bi-people', 'Employees & Manpower'], 'attendance' => ['bi-calendar-check', 'Attendance'], 'vehicles' => ['bi-truck', 'Ambulance & Cab Fleet'], 'deployments' => ['bi-diagram-3', 'Contract Deployments'], 'service-logs' => ['bi-journal-check', 'Service Logs & Trips']] as $key => [$icon, $label])
+        @foreach (['employees' => ['bi-people', 'Employees & Manpower'], 'attendance' => ['bi-calendar-check', 'Attendance'], 'vehicles' => ['bi-truck', 'Ambulance & Cab Fleet'], 'deployments' => ['bi-diagram-3', 'Contract Deployments']] as $key => [$icon, $label])
             <li class="nav-item"><a class="nav-link {{ request()->is($key) ? 'active' : '' }}" href="{{ route('resources.index', $key) }}"><i class="bi {{ $icon }} nav-icon"></i> {{ $label }}</a></li>
         @endforeach
         <li class="nav-title">Finance</li>

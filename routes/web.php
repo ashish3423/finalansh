@@ -5,6 +5,7 @@ use App\Http\Controllers\EnterpriseController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\VehicleExpiryReminderController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -20,6 +21,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     Route::get('/', [EnterpriseController::class, 'dashboard'])->name('dashboard');
+    Route::post('/vehicle-expiry-reminders/remind-tomorrow', [VehicleExpiryReminderController::class, 'remindMeTomorrow'])->name('vehicle-expiry-reminders.remind-tomorrow');
+    Route::post('/vehicle-expiry-reminders/close', [VehicleExpiryReminderController::class, 'closePermanently'])->name('vehicle-expiry-reminders.close');
 
     Route::get('/salary', [SalaryController::class, 'index'])->name('salary.index');
     Route::get('/salary/export/form-b', [SalaryController::class, 'exportFormB'])->name('salary.export.form-b');

@@ -86,6 +86,23 @@
 .quick-link:last-child { border-bottom:0; }.quick-link:hover strong { color:#4058c9; }
 .quick-icon { display:grid; place-items:center; width:38px; height:38px; flex:0 0 38px; border-radius:11px; color:#5665d5; background:#f0f2ff; }
 .quick-link strong,.quick-link small { display:block; }.quick-link strong { color:#273651; font-size:.81rem; }.quick-link small { margin-top:.12rem; color:#8490a3; font-size:.7rem; }
+.expiry-reminder-registration { display:inline-flex; align-items:center; padding:.5rem .7rem; border:1px solid #cdd8ff; border-radius:9px; color:#273f9b; background:#edf2ff; font-size:.92rem; font-weight:800; letter-spacing:.035em; white-space:nowrap; }
+.expiry-reminder-countdown { display:inline-flex; min-width:94px; flex-direction:column; align-items:center; padding:.42rem .65rem; border-radius:9px; line-height:1.15; text-align:center; }
+.expiry-reminder-countdown strong { font-size:.92rem; font-weight:850; white-space:nowrap; }
+.expiry-reminder-countdown small { margin-top:.18rem; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.045em; }
+.expiry-reminder-countdown.upcoming { color:#995511; background:#fff3e1; }
+.expiry-reminder-countdown.today { color:#9f3b17; background:#fff0e7; }
+.expiry-reminder-countdown.expired { color:#b42335; background:#fff0f1; }
+.expiry-value { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+.expiry-days-pill { display:inline-flex; flex:0 0 auto; align-items:center; margin-left:auto; padding:.3rem .55rem; border-radius:999px; font-size:.72rem; font-weight:800; vertical-align:middle; white-space:nowrap; }
+.expiry-days-pill.expired { color:#b42335; background:#fff0f1; }
+.expiry-days-pill.today { color:#9f3b17; background:#fff0e7; }
+.expiry-days-pill.soon { color:#995511; background:#fff3e1; }
+.expiry-days-pill.valid { color:#087443; background:#e8f7ef; }
+.expiry-reminder-footer { display:flex; flex-direction:column; align-items:stretch; gap:.55rem; }
+.expiry-reminder-actions { display:flex; width:100%; justify-content:flex-end; align-items:center; flex-wrap:nowrap; gap:.5rem; }
+.expiry-reminder-actions form { display:flex; flex:0 0 auto; }
+@media(max-width:420px) { .expiry-reminder-actions { gap:.35rem; }.expiry-reminder-actions .btn { padding:.35rem .45rem; font-size:.74rem; } }
 .account-page { width:100%; }
 .account-brand { display:flex; align-items:center; justify-content:center; gap:.65rem; color:#1e2d50; font-size:1.1rem; font-weight:750; }
 .account-card { border:1px solid #e6ebf4; border-radius:16px; box-shadow:0 12px 35px rgba(30,50,90,.08); }
