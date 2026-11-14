@@ -12,7 +12,7 @@
 
     <section class="card records-card">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-3"><div><h5 class="mb-1">Salary records</h5><div class="text-muted small">{{ number_format($salaries->total()) }} payroll record(s)</div></div>
-            <form method="GET" action="{{ route('salary.index') }}" id="salaryFilterForm" class="filter-bar d-flex flex-wrap gap-2"><div class="input-group search-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" name="search" value="{{ request('search') }}" placeholder="Employee, code, contract"></div><input class="form-control salary-month-filter" id="salaryMonthFilter" type="month" name="month" value="{{ request('month') }}"><button class="btn btn-light border" type="submit">Filter</button>@if(request()->query())<a class="btn btn-light border" href="{{ route('salary.index') }}">Reset</a>@endif<button class="btn btn-outline-success" id="salaryExportButton" type="submit" formaction="{{ route('salary.export.form-b') }}" @disabled(!request('month')) title="Select a pay month to export Form B"><i class="bi bi-file-earmark-excel me-1"></i>Export Form B</button><small class="w-100 text-muted" id="salaryExportSelectionMessage" aria-live="polite">No employees selected: export all salaries for the chosen month.</small></form>
+            <form method="GET" action="{{ route('salary.index') }}" id="salaryFilterForm" class="filter-bar d-flex flex-wrap gap-2"><div class="input-group search-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" name="search" value="{{ request('search') }}" placeholder="Employee, code, contract"></div><div class="month-picker salary-month-filter" data-month-picker><div class="input-group"><input class="form-control month-picker-display" id="salaryMonthFilterDisplay" type="text" readonly placeholder="Choose month" aria-label="Pay month"><button class="btn btn-light border month-picker-toggle" type="button" data-month-toggle aria-label="Choose pay month" aria-expanded="false"><i class="bi bi-calendar-month"></i></button></div><input type="hidden" id="salaryMonthFilter" data-month-value name="month" value="{{ request('month') }}"><div class="month-picker-panel" data-month-panel hidden><div class="month-picker-header"><button class="btn btn-sm btn-light border" type="button" data-year-step="-1" aria-label="Previous year"><i class="bi bi-chevron-left"></i></button><strong data-month-year></strong><button class="btn btn-sm btn-light border" type="button" data-year-step="1" aria-label="Next year"><i class="bi bi-chevron-right"></i></button></div><div class="month-picker-grid">@foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $monthIndex => $monthName)<button class="month-picker-month" type="button" data-month-option="{{ $monthIndex + 1 }}">{{ $monthName }}</button>@endforeach</div></div></div><button class="btn btn-light border" type="submit">Filter</button>@if(request()->query())<a class="btn btn-light border" href="{{ route('salary.index') }}">Reset</a>@endif<button class="btn btn-outline-success" id="salaryExportButton" type="submit" formaction="{{ route('salary.export.form-b') }}" @disabled(!request('month')) title="Select a pay month to export Form B"><i class="bi bi-file-earmark-excel me-1"></i>Export Form B</button><small class="w-100 text-muted" id="salaryExportSelectionMessage" aria-live="polite">No employees selected: export all salaries for the chosen month.</small></form>
         </div>
         <div class="table-responsive"><table class="table align-middle enterprise-table salary-table mb-0"><thead><tr><th><input class="form-check-input" type="checkbox" id="salarySelectPage" aria-label="Select all employees on this page"></th><th>Pay month</th><th>Employee</th><th>Contract</th><th>Days × rate</th><th>Gross salary</th><th>Employee deductions</th><th>Employer PF + ESI</th><th>Bonus</th><th>Net salary</th><th class="text-end">Actions</th></tr></thead><tbody>
             @forelse($salaries as $salary)
@@ -29,7 +29,7 @@
 <div class="modal fade" id="salaryModal" tabindex="-1" aria-labelledby="salaryModalTitle" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="salaryForm" method="POST" action="{{ route('salary.store') }}">@csrf<input type="hidden" name="_method" id="salaryMethod" value="POST">
     <div class="modal-header"><div><div class="eyebrow">EMPLOYEE PAYROLL</div><h5 class="modal-title" id="salaryModalTitle">Calculate salary</h5></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
     <div class="modal-body"><div class="row g-3">
-        <div class="col-md-6"><label class="form-label" for="salaryMonth">Pay month</label><input class="form-control" id="salaryMonth" name="salary_month" type="month" value="{{ now('Asia/Kolkata')->format('Y-m') }}" required></div>
+        <div class="col-md-6"><label class="form-label" for="salaryMonthDisplay">Pay month</label><div class="month-picker" data-month-picker><div class="input-group"><input class="form-control month-picker-display" id="salaryMonthDisplay" type="text" readonly required placeholder="Choose month" aria-label="Pay month"><button class="btn btn-light border month-picker-toggle" type="button" data-month-toggle aria-label="Choose pay month" aria-expanded="false"><i class="bi bi-calendar-month"></i></button></div><input type="hidden" id="salaryMonth" data-month-value name="salary_month" value="{{ now('Asia/Kolkata')->format('Y-m') }}"><div class="month-picker-panel" data-month-panel hidden><div class="month-picker-header"><button class="btn btn-sm btn-light border" type="button" data-year-step="-1" aria-label="Previous year"><i class="bi bi-chevron-left"></i></button><strong data-month-year></strong><button class="btn btn-sm btn-light border" type="button" data-year-step="1" aria-label="Next year"><i class="bi bi-chevron-right"></i></button></div><div class="month-picker-grid">@foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $monthIndex => $monthName)<button class="month-picker-month" type="button" data-month-option="{{ $monthIndex + 1 }}">{{ $monthName }}</button>@endforeach</div></div></div></div>
         <div class="col-md-6"><label class="form-label" for="salaryEmployee">Employee</label><select class="form-select" id="salaryEmployee" name="employee_id" required><option value="">Select employee</option>@foreach($employees as $employee)<option value="{{ $employee->id }}">{{ $employee->employee_code }} — {{ $employee->name }}</option>@endforeach</select></div>
         <div class="col-12"><div id="salaryEmployeeLoader" class="d-none d-flex align-items-center justify-content-center gap-2 py-2 text-primary" role="status" aria-live="polite"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Loading employee details…</span></div><div id="salaryEmployeeLoadError" class="alert alert-danger py-2 mb-0 d-none" role="alert"></div></div>
         <div class="col-md-4"><label class="form-label" for="employeeDesignation">Designation</label><input class="form-control" id="employeeDesignation" readonly placeholder="Auto-filled"></div>
@@ -59,6 +59,76 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const formatMonth = value => {
+        const match = /^(\d{4})-(\d{2})$/.exec(value || '');
+        return match ? `${monthNames[Number(match[2]) - 1]} ${match[1]}` : '';
+    };
+    const renderMonthPicker = widget => {
+        const hidden = widget.querySelector('[data-month-value]');
+        const display = widget.querySelector('.month-picker-display');
+        const selected = /^(\d{4})-(\d{2})$/.exec(hidden.value || '');
+        const state = widget.monthPickerState;
+        display.value = formatMonth(hidden.value);
+        widget.querySelector('[data-month-year]').textContent = state.year;
+        widget.querySelectorAll('[data-month-option]').forEach(button => {
+            const month = String(button.dataset.monthOption).padStart(2, '0');
+            const active = !!selected && selected[1] === String(state.year) && selected[2] === month;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    };
+    document.querySelectorAll('[data-month-picker]').forEach(widget => {
+        const hidden = widget.querySelector('[data-month-value]');
+        const panel = widget.querySelector('[data-month-panel]');
+        const toggle = widget.querySelector('[data-month-toggle]');
+        const initialYear = Number((hidden.value || '').slice(0, 4)) || new Date().getFullYear();
+        widget.monthPickerState = {year:initialYear};
+        renderMonthPicker(widget);
+        toggle.addEventListener('click', () => {
+            panel.hidden = !panel.hidden;
+            toggle.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+            const selected = /^(\d{4})-(\d{2})$/.exec(hidden.value || '');
+            if (!panel.hidden && selected) widget.monthPickerState.year = Number(selected[1]);
+            renderMonthPicker(widget);
+        });
+        widget.querySelector('.month-picker-display').addEventListener('click', () => toggle.click());
+        widget.querySelectorAll('[data-year-step]').forEach(button => button.addEventListener('click', () => {
+            widget.monthPickerState.year += Number(button.dataset.yearStep);
+            renderMonthPicker(widget);
+        }));
+        widget.querySelectorAll('[data-month-option]').forEach(button => button.addEventListener('click', () => {
+            const month = String(button.dataset.monthOption).padStart(2, '0');
+            hidden.value = `${widget.monthPickerState.year}-${month}`;
+            renderMonthPicker(widget);
+            panel.hidden = true;
+            toggle.setAttribute('aria-expanded', 'false');
+            hidden.dispatchEvent(new Event('input', {bubbles:true}));
+            hidden.dispatchEvent(new Event('change', {bubbles:true}));
+        }));
+        widget.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !panel.hidden) {
+                panel.hidden = true;
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.focus();
+            }
+        });
+        document.addEventListener('click', event => {
+            if (!widget.contains(event.target) && !panel.hidden) {
+                panel.hidden = true;
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+    window.setMonthPickerValue = (hidden, value) => {
+        hidden.value = value;
+        const widget = hidden.closest('[data-month-picker]');
+        if (widget) {
+            widget.monthPickerState.year = Number((value || '').slice(0, 4)) || new Date().getFullYear();
+            renderMonthPicker(widget);
+        }
+    };
+
     const monthFilter = document.getElementById('salaryMonthFilter');
     const exportButton = document.getElementById('salaryExportButton');
     const exportForm = document.getElementById('salaryFilterForm');
@@ -91,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else selectedEmployees.delete(checkbox.value);
         saveSelection(); refreshSelection();
     }));
-    monthFilter.addEventListener('input', () => {
+    monthFilter.addEventListener('change', () => {
         exportButton.disabled = !monthFilter.value;
         selectedEmployees = readSelection();
         refreshSelection();
@@ -212,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         form.action = editing ? `${salaryUrl}/${trigger.dataset.id}` : salaryUrl;
         method.value = editing ? 'PUT' : 'POST';
         employeeSelect.value = record?.employee_id || '';
-        monthInput.value = record?.salary_month?.slice(0,7) || @json(now('Asia/Kolkata')->format('Y-m'));
+        window.setMonthPickerValue(monthInput, record?.salary_month?.slice(0,7) || @json(now('Asia/Kolkata')->format('Y-m')));
         daysInput.value = record?.working_days || '';
         bonusInput.value = record?.bonus_amount || '0';
         bonusInput.disabled = true;

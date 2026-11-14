@@ -98,6 +98,14 @@
                                 @else<button class="btn btn-sm btn-icon btn-view" type="button" title="View {{ strtolower($definition['singular']) }}" data-bs-toggle="modal" data-bs-target="#recordViewModal" data-record="{{ json_encode($row) }}"><i class="bi bi-eye"></i></button>@endif
                                 @can('manage-records')
                                     <button class="btn btn-sm btn-icon btn-edit" type="button" title="Edit" data-bs-toggle="modal" data-bs-target="#recordModal" data-mode="edit" data-id="{{ $row->id }}" data-record="{{ json_encode($row) }}"><i class="bi bi-pencil-square"></i></button>
+                                    @if ($module === 'deployments')
+                                        @if ($row->employee_id && $row->vehicle_id)
+                                            <button class="btn btn-sm btn-icon btn-view" type="button" title="Move employee" data-bs-toggle="modal" data-bs-target="#recordModal" data-mode="edit" data-resource-target="employee" data-id="{{ $row->id }}" data-record="{{ json_encode($row) }}"><i class="bi bi-person-up"></i></button>
+                                            <button class="btn btn-sm btn-icon btn-view" type="button" title="Move vehicle" data-bs-toggle="modal" data-bs-target="#recordModal" data-mode="edit" data-resource-target="vehicle" data-id="{{ $row->id }}" data-record="{{ json_encode($row) }}"><i class="bi bi-truck"></i></button>
+                                        @else
+                                            <button class="btn btn-sm btn-icon btn-view" type="button" title="Move to another contract" data-bs-toggle="modal" data-bs-target="#recordModal" data-mode="edit" data-resource-target="{{ $row->employee_id ? 'employee' : 'vehicle' }}" data-id="{{ $row->id }}" data-record="{{ json_encode($row) }}"><i class="bi bi-arrow-left-right"></i></button>
+                                        @endif
+                                    @endif
                                     <button class="btn btn-sm btn-icon btn-delete" type="button" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ $row->id }}" data-label="{{ $row->{array_key_first($definition['columns'])} ?? $row->id }}"><i class="bi bi-trash3"></i></button>
                                 @endcan
                         </td>
@@ -120,6 +128,26 @@
             <div class="modal-body {{ $module === 'employees' ? 'employee-modal-scroll' : '' }}">
                 @if ($module === 'employees')<div class="alert alert-info small py-2 mb-3"><i class="bi bi-magic me-1"></i>Employee code is generated automatically when this employee is saved.</div>@endif
                 <div class="row g-3">
+                @if ($module === 'deployments')
+                    <input type="hidden" id="deploymentMoveResource" name="move_resource" value="">
+                    <div class="col-md-6">
+                        <label class="form-label" for="deploymentContract">Active contract</label>
+                        <select class="form-select" id="deploymentContract" name="contract_id" required><option value="">Select contract</option>
+                            @foreach ($deploymentContracts as $contract)<option value="{{ $contract->id }}" data-service-type="{{ $contract->service_type }}">{{ $contract->contract_number }} · {{ ucfirst($contract->service_type) }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-6"><label class="form-label" for="deploymentServiceType">Service type</label><input class="form-control" id="deploymentServiceType" value="Select a contract" readonly></div>
+                    <div class="col-12" id="deploymentEmployeeSection">
+                        <div class="d-flex align-items-center justify-content-between mb-2"><div><label class="form-label mb-0">Manpower / crew</label><div class="text-muted small">Employees already assigned to another active contract are unavailable.</div></div><button class="btn btn-sm btn-light border" id="addDeploymentEmployee" type="button"><i class="bi bi-plus-lg me-1"></i>Add employee</button></div>
+                        <div class="vstack gap-2" id="deploymentEmployeeRows"></div>
+                    </div>
+                    <div class="col-12" id="deploymentVehicleSection">
+                        <div class="d-flex align-items-center justify-content-between mb-2"><div><label class="form-label mb-0">Ambulances / cabs</label><div class="text-muted small">Select one or more available vehicles.</div></div><button class="btn btn-sm btn-light border" id="addDeploymentVehicle" type="button"><i class="bi bi-plus-lg me-1"></i>Add vehicle</button></div>
+                        <div class="vstack gap-2" id="deploymentVehicleRows"></div>
+                    </div>
+                    <template id="deploymentEmployeeTemplate"><div class="deployment-assignment-row employee-assignment-row row g-2 align-items-end"><div class="col-md-7"><label class="form-label">Employee</label><select class="form-select deployment-employee-select"><option value="">Select employee</option>@foreach ($deploymentEmployees as $employee)<option value="{{ $employee->id }}" data-assigned-deployment="{{ $assignedEmployeeRows[$employee->id] ?? '' }}">{{ $employee->employee_code }} — {{ $employee->name }} ({{ $employee->role }})</option>@endforeach</select></div><div class="col-md-4 deployment-position-wrap"><label class="form-label">Crew role</label><select class="form-select deployment-position-select"><option value="">Select role</option><option value="driver">Driver</option><option value="assistant">Assistant</option><option value="paramedic">Paramedic</option><option value="attendant">Attendant</option><option value="other">Other</option></select></div><div class="col-md-1 text-end"><button class="btn btn-icon btn-delete remove-deployment-row" type="button" aria-label="Remove employee"><i class="bi bi-x-lg"></i></button></div></div></template>
+                    <template id="deploymentVehicleTemplate"><div class="deployment-assignment-row row g-2 align-items-end"><div class="col-11"><label class="form-label">Vehicle</label><select class="form-select deployment-vehicle-select"><option value="">Select vehicle</option>@foreach ($deploymentVehicles as $vehicle)<option value="{{ $vehicle->id }}" data-service-type="{{ $vehicle->service_type }}" data-assigned-deployment="{{ $assignedVehicleRows[$vehicle->id] ?? '' }}">{{ $vehicle->registration_number }}{{ $vehicle->make_model ? ' — '.$vehicle->make_model : '' }} ({{ ucfirst($vehicle->service_type) }})</option>@endforeach</select></div><div class="col-1 text-end"><button class="btn btn-icon btn-delete remove-deployment-row" type="button" aria-label="Remove vehicle"><i class="bi bi-x-lg"></i></button></div></div></template>
+                @else
                 @foreach ($definition['fields'] as $name => $field)
                     @php [$label, $type] = $field; $isSelect = in_array($type, ['select', 'edit-select', 'relation', 'relation_optional'], true); @endphp
                     @if ($type === 'edit-select')<input type="hidden" id="field-{{ $name }}-create" name="{{ $name }}" value="active" data-create-status>@endif
@@ -148,6 +176,7 @@
                         @error($name)<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     </div>
                 @endforeach
+                @endif
             </div></div>
             <div class="modal-footer"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save {{ $definition['singular'] }}</button></div>
         </form>
@@ -200,6 +229,99 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoInput = document.getElementById('field-photo');
     const photoPreview = document.getElementById('employeePhotoPreview');
     const photoPlaceholder = document.getElementById('employeePhotoPlaceholder');
+    const deploymentMode = @json($module === 'deployments');
+    const deploymentContract = document.getElementById('deploymentContract');
+    const deploymentServiceType = document.getElementById('deploymentServiceType');
+    const employeeRows = document.getElementById('deploymentEmployeeRows');
+    const vehicleRows = document.getElementById('deploymentVehicleRows');
+    let currentDeploymentId = '';
+    let currentDeploymentRecord = null;
+
+    const addEmployeeAssignmentRow = (employeeId = '', position = '', editing = false) => {
+        const row = document.getElementById('deploymentEmployeeTemplate').content.firstElementChild.cloneNode(true);
+        const select = row.querySelector('.deployment-employee-select');
+        const role = row.querySelector('.deployment-position-select');
+        select.value = employeeId;
+        const normalizedRole = String(position || '').trim().toLowerCase();
+        role.value = ['driver', 'assistant', 'paramedic', 'attendant', 'other'].includes(normalizedRole)
+            ? normalizedRole
+            : (normalizedRole ? 'other' : '');
+        if (editing) { select.name = 'employee_id'; role.name = 'position'; select.required = true; }
+        row.querySelector('.remove-deployment-row').classList.toggle('d-none', editing);
+        employeeRows.append(row);
+        return row;
+    };
+    const addVehicleAssignmentRow = (vehicleId = '', editing = false) => {
+        const row = document.getElementById('deploymentVehicleTemplate').content.firstElementChild.cloneNode(true);
+        const select = row.querySelector('.deployment-vehicle-select');
+        select.value = vehicleId;
+        if (editing) { select.name = 'vehicle_id'; select.required = true; }
+        row.querySelector('.remove-deployment-row').classList.toggle('d-none', editing);
+        vehicleRows.append(row);
+        return row;
+    };
+    const syncDeploymentForm = (record = null) => {
+        if (!deploymentMode) return;
+            const serviceType = deploymentContract.selectedOptions[0]?.dataset.serviceType || '';
+        deploymentServiceType.value = serviceType ? serviceType.charAt(0).toUpperCase() + serviceType.slice(1) : 'Select a contract';
+        const activeRecord = record || currentDeploymentRecord;
+        const editing = !!activeRecord;
+        const activeRecordId = String(activeRecord?.id || currentDeploymentId || '');
+        const employeeEdit = editing && !!activeRecord.employee_id;
+        const vehicleEdit = editing && !!activeRecord.vehicle_id;
+        document.getElementById('deploymentVehicleSection').classList.toggle('d-none', serviceType === 'manpower' || employeeEdit);
+        document.getElementById('deploymentEmployeeSection').classList.toggle('d-none', vehicleEdit);
+        document.getElementById('addDeploymentEmployee').classList.toggle('d-none', editing);
+        document.getElementById('addDeploymentVehicle').classList.toggle('d-none', editing);
+        const selectedEmployeeIds = [...employeeRows.querySelectorAll('.deployment-employee-select')].map(select => select.value).filter(Boolean);
+        employeeRows.querySelectorAll('.employee-assignment-row').forEach(row => {
+            const roleWrap = row.querySelector('.deployment-position-wrap');
+            roleWrap.classList.toggle('d-none', !['ambulance', 'cab'].includes(serviceType));
+            const select = row.querySelector('.deployment-employee-select');
+            const roleSelect = row.querySelector('.deployment-position-select');
+            roleSelect.required = ['ambulance', 'cab'].includes(serviceType) && !!select.value;
+            select.querySelectorAll('option[data-assigned-deployment]').forEach(option => {
+                const assignedElsewhere = !!option.dataset.assignedDeployment && option.dataset.assignedDeployment !== activeRecordId;
+                const selectedInAnotherRow = selectedEmployeeIds.includes(option.value) && option.value !== select.value;
+                option.disabled = assignedElsewhere || selectedInAnotherRow;
+            });
+            if (editing) { select.name = 'employee_id'; roleSelect.name = 'position'; }
+            else { select.name = `employee_assignments[${[...employeeRows.children].indexOf(row)}][employee_id]`; roleSelect.name = `employee_assignments[${[...employeeRows.children].indexOf(row)}][position]`; }
+        });
+        const selectedVehicleIds = [...vehicleRows.querySelectorAll('.deployment-vehicle-select')].map(select => select.value).filter(Boolean);
+        vehicleRows.querySelectorAll('.deployment-vehicle-select').forEach(select => {
+            select.querySelectorAll('option[data-service-type]').forEach(option => {
+                const assignedElsewhere = !!option.dataset.assignedDeployment && option.dataset.assignedDeployment !== activeRecordId;
+                const selectedInAnotherRow = selectedVehicleIds.includes(option.value) && option.value !== select.value;
+                option.disabled = assignedElsewhere || selectedInAnotherRow || option.dataset.serviceType !== serviceType;
+            });
+            select.name = editing ? 'vehicle_id' : 'vehicle_ids[]';
+        });
+    };
+
+    if (deploymentMode) {
+        document.getElementById('addDeploymentEmployee').addEventListener('click', () => { addEmployeeAssignmentRow(); syncDeploymentForm(); });
+        document.getElementById('addDeploymentVehicle').addEventListener('click', () => { addVehicleAssignmentRow(); syncDeploymentForm(); });
+        modal.addEventListener('click', event => {
+            if (event.target.closest('.remove-deployment-row')) {
+                event.target.closest('.deployment-assignment-row').remove();
+                syncDeploymentForm();
+            }
+        });
+        deploymentContract.addEventListener('change', () => {
+            const selectedService = deploymentContract.selectedOptions[0]?.dataset.serviceType || '';
+            vehicleRows.querySelectorAll('.deployment-vehicle-select').forEach(select => { if (select.selectedOptions[0] && select.selectedOptions[0].dataset.serviceType !== selectedService) select.value = ''; });
+            syncDeploymentForm();
+        });
+        modal.addEventListener('change', event => {
+            if (event.target.matches('.deployment-employee-select, .deployment-vehicle-select')) syncDeploymentForm();
+        });
+        form.addEventListener('submit', () => {
+            employeeRows.querySelectorAll('.employee-assignment-row').forEach(row => { if (!row.querySelector('.deployment-employee-select').value) row.remove(); });
+            vehicleRows.querySelectorAll('.deployment-assignment-row').forEach(row => { if (!row.querySelector('.deployment-vehicle-select').value) row.remove(); });
+            syncDeploymentForm();
+        });
+    }
 
     const syncConditionalFields = () => form.querySelectorAll('[data-condition-field]').forEach(wrapper => {
         const controller = document.getElementById(wrapper.dataset.conditionField);
@@ -217,7 +339,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const trigger = event.relatedTarget;
         const editing = trigger?.dataset.mode === 'edit';
         const record = editing ? JSON.parse(trigger.dataset.record) : defaults;
-        title.textContent = `${editing ? 'Edit' : 'Add'} {{ $definition['singular'] }}`;
+        let deploymentDisplayRecord = record;
+        if (deploymentMode) {
+            employeeRows.replaceChildren();
+            vehicleRows.replaceChildren();
+            deploymentContract.value = '';
+            currentDeploymentId = editing ? String(record.id || '') : '';
+            const resourceTarget = trigger?.dataset.resourceTarget || (record.employee_id ? 'employee' : 'vehicle');
+            if (editing && record.employee_id && record.vehicle_id) {
+                deploymentDisplayRecord = {
+                    ...record,
+                    employee_id: resourceTarget === 'employee' ? record.employee_id : null,
+                    vehicle_id: resourceTarget === 'vehicle' ? record.vehicle_id : null,
+                };
+            }
+            currentDeploymentRecord = editing ? deploymentDisplayRecord : null;
+            const moveResource = document.getElementById('deploymentMoveResource');
+            if (moveResource) moveResource.value = editing ? resourceTarget : '';
+            if (!editing) { addEmployeeAssignmentRow(); addVehicleAssignmentRow(); }
+        }
+        title.textContent = `${editing ? (trigger?.dataset.resourceTarget ? 'Move' : 'Edit') : 'Add'} {{ $definition['singular'] }}`;
         form.querySelectorAll('[data-edit-only-field]').forEach(field => {
             field.classList.toggle('d-none', !editing);
             const select = field.querySelector('[data-edit-only-select]');
@@ -235,6 +376,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (input.type === 'datetime-local' && value) value = String(value).replace(' ', 'T').slice(0, 16);
             input.value = value;
         });
+        if (deploymentMode) {
+            deploymentContract.value = editing ? String(deploymentDisplayRecord.contract_id || '') : '';
+            if (editing && deploymentDisplayRecord.employee_id) addEmployeeAssignmentRow(deploymentDisplayRecord.employee_id, deploymentDisplayRecord.position, true);
+            if (editing && deploymentDisplayRecord.vehicle_id) addVehicleAssignmentRow(deploymentDisplayRecord.vehicle_id, true);
+            syncDeploymentForm(editing ? deploymentDisplayRecord : null);
+        }
         syncConditionalFields();
         if (photoInput) {
             photoInput.value = '';

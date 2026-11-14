@@ -12,7 +12,7 @@
 
     <div class="row g-3 mb-4">
         @foreach ([['contracts','Total contracts','bi-file-earmark-text','blue'],['active_contracts','Active contracts','bi-activity','green'],['employees','Active employees','bi-people','violet'],['vehicles','Active fleet vehicles','bi-truck','orange'],['service_logs','Services today','bi-journal-check','teal'],['pending_invoices','Invoices to follow up','bi-receipt','rose']] as [$key,$label,$icon,$color])
-            <div class="col-12 col-sm-6 col-xl-4"><div class="metric-card"><div class="metric-icon metric-{{ $color }}"><i class="bi {{ $icon }}"></i></div><div><div class="metric-label">{{ $label }}</div><div class="metric-value">{{ number_format($counts[$key]) }}</div></div></div></div>
+            <div class="col-12 col-sm-6 col-xl-4"><div class="metric-card metric-card-{{ $color }}"><div class="metric-icon"><i class="bi {{ $icon }}"></i></div><div><div class="metric-label">{{ $label }}</div><div class="metric-value">{{ number_format($counts[$key]) }}</div></div></div></div>
         @endforeach
     </div>
 

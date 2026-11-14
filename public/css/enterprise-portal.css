@@ -69,6 +69,18 @@
 .metric-blue { color:#3158c9; background:#edf2ff; }.metric-green { color:#087443; background:#e8f7ef; }.metric-violet { color:#7041c6; background:#f2ebff; }.metric-orange { color:#bc6b11; background:#fff3e5; }.metric-teal { color:#087c83; background:#e4f8f7; }.metric-rose { color:#bc3b67; background:#fff0f4; }
 .metric-label { color:#738199; font-size:.75rem; font-weight:600; }
 .metric-value { margin-top:.15rem; color:#1e2d50; font-size:1.75rem; font-weight:750; line-height:1.1; letter-spacing:-.04em; }
+.dashboard-page .metric-card { position:relative; overflow:hidden; border:0; color:#fff; box-shadow:0 10px 24px rgba(30,50,90,.12); transition:transform .18s ease,box-shadow .18s ease; }
+.dashboard-page .metric-card:hover { transform:translateY(-3px); box-shadow:0 15px 30px rgba(30,50,90,.18); }
+.dashboard-page .metric-card::after { position:absolute; right:-24px; bottom:-54px; width:145px; height:145px; border:1px solid rgba(255,255,255,.16); border-radius:50%; content:""; }
+.dashboard-page .metric-card .metric-icon { color:#fff; background:rgba(255,255,255,.2); }
+.dashboard-page .metric-card .metric-label { color:rgba(255,255,255,.86); }
+.dashboard-page .metric-card .metric-value { color:#fff; }
+.dashboard-page .metric-card-blue { background:linear-gradient(135deg,#3478f6,#2854c5); }
+.dashboard-page .metric-card-green { background:linear-gradient(135deg,#20a875,#08764f); }
+.dashboard-page .metric-card-violet { background:linear-gradient(135deg,#8c5ce5,#6036b3); }
+.dashboard-page .metric-card-orange { background:linear-gradient(135deg,#f49b3f,#d76528); }
+.dashboard-page .metric-card-teal { background:linear-gradient(135deg,#18a9ad,#08747c); }
+.dashboard-page .metric-card-rose { background:linear-gradient(135deg,#e65e88,#b93666); }
 .quick-links { padding:.35rem 1rem; }
 .quick-link { display:flex; align-items:center; gap:.8rem; padding:.8rem .1rem; color:inherit; text-decoration:none; border-bottom:1px solid #eff2f6; }
 .quick-link:last-child { border-bottom:0; }.quick-link:hover strong { color:#4058c9; }
@@ -93,7 +105,18 @@
 .employee-details-table th { width:34%; padding:1rem 1.15rem; color:#45536b; background:#f8faff; font-size:.82rem; font-weight:700; vertical-align:middle; }
 .employee-details-table td { padding:1rem 1.15rem; color:#273651; font-size:.86rem; white-space:pre-wrap; overflow-wrap:anywhere; vertical-align:middle; }
 .employee-detail-photo { display:block; width:96px; height:96px; border:1px solid #e3e9f2; border-radius:12px; object-fit:cover; }
-.salary-month-filter { width:165px; }
+.month-picker { position:relative; width:100%; }
+.salary-month-filter { flex:0 0 190px; width:190px; }
+.month-picker-display { cursor:pointer; background:#fff!important; }
+.month-picker-toggle { color:#56657c; }
+.month-picker-panel { position:absolute; z-index:1080; top:calc(100% + .35rem); left:0; width:100%; min-width:250px; padding:.7rem; border:1px solid #dfe5ef; border-radius:10px; background:#fff; box-shadow:0 12px 32px rgba(30,50,90,.18); }
+.month-picker-panel[hidden] { display:none!important; }
+.month-picker-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.55rem; }
+.month-picker-header strong { color:#24334d; font-size:.9rem; }
+.month-picker-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.3rem; }
+.month-picker-month { padding:.48rem .25rem; border:0; border-radius:7px; color:#45536b; background:transparent; font-size:.82rem; }
+.month-picker-month:hover { color:#3158c9; background:#f0f3ff; }
+.month-picker-month.active { color:#fff; background:#4058c9; font-weight:700; }
 .salary-table { min-width:1230px; }
 .salary-calculated { color:#26344d!important; background:#f8faff!important; font-weight:650; }
 .salary-net { color:#087443!important; background:#e8f7ef!important; font-weight:800; }

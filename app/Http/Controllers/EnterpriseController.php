@@ -6,6 +6,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class EnterpriseController extends Controller
 {
@@ -62,14 +63,43 @@ class EnterpriseController extends Controller
         $rows = $query->orderByDesc('id')->paginate(15)->withQueryString();
         $options = $this->fieldOptions($definition);
         $relationLabels = $this->relationLabels($definition);
+        $deploymentContracts = $deploymentEmployees = $deploymentVehicles = $assignedEmployeeRows = $assignedVehicleRows = [];
+        if ($module === 'deployments') {
+            $deploymentContracts = DB::table('contracts')->where('status', 'active')->orderBy('contract_number')->get(['id', 'contract_number', 'service_type']);
+            $deploymentEmployees = DB::table('employees')->where('status', 'active')->orderBy('employee_code')->get(['id', 'employee_code', 'name', 'role']);
+            $deploymentVehicles = DB::table('vehicles')->whereNotIn('status', ['maintenance', 'inactive'])->orderBy('registration_number')->get(['id', 'registration_number', 'service_type', 'make_model']);
+            $activeAssignments = DB::table('contract_deployments as d')
+                ->join('contracts as c', 'c.id', '=', 'd.contract_id')
+                ->where('d.status', 'active')->where('c.status', 'active')
+                ->get(['d.id', 'd.employee_id', 'd.vehicle_id']);
+            foreach ($activeAssignments as $assignment) {
+                if ($assignment->employee_id) {
+                    $assignedEmployeeRows[$assignment->employee_id] = $assignment->id;
+                }
+                if ($assignment->vehicle_id) {
+                    $assignedVehicleRows[$assignment->vehicle_id] = $assignment->id;
+                }
+            }
+            foreach ($deploymentEmployees as $employee) {
+                $relationLabels['employee_id'][$employee->id] = trim($employee->employee_code.' — '.$employee->name);
+            }
+        }
 
-        return view('enterprise.index', compact('module', 'definition', 'rows', 'options', 'relationLabels'));
+        return view('enterprise.index', compact('module', 'definition', 'rows', 'options', 'relationLabels', 'deploymentContracts', 'deploymentEmployees', 'deploymentVehicles', 'assignedEmployeeRows', 'assignedVehicleRows'));
     }
 
     public function store(Request $request, string $module)
     {
         $definition = $this->module($module);
+        if ($module === 'deployments') {
+            $this->storeDeployments($request);
+
+            return back()->with('success', 'Deployment assignments created successfully.');
+        }
         $data = $this->validated($request, $definition);
+        if ($module === 'contracts') {
+            $data['title'] = $data['organization'];
+        }
         $photo = $data['photo'] ?? null;
         unset($data['photo']);
         if ($module === 'employees') {
@@ -93,7 +123,15 @@ class EnterpriseController extends Controller
         $definition = $this->module($module);
         $record = DB::table($definition['table'])->where('id', $id)->first();
         abort_unless($record, 404);
+        if ($module === 'deployments') {
+            $this->updateDeployment($request, $record);
+
+            return back()->with('success', 'Deployment assignment moved successfully.');
+        }
         $data = $this->validated($request, $definition, $id);
+        if ($module === 'contracts') {
+            $data['title'] = $data['organization'];
+        }
         $photo = $data['photo'] ?? null;
         unset($data['photo']);
         if ($module === 'employees' && $photo) {
@@ -120,11 +158,191 @@ class EnterpriseController extends Controller
         }
 
         abort_unless($deleted, 404);
+        if ($module === 'deployments' && $record->vehicle_id) {
+            $stillAssigned = DB::table('contract_deployments as d')->join('contracts as c', 'c.id', '=', 'd.contract_id')
+                ->where('d.vehicle_id', $record->vehicle_id)->where('d.status', 'active')->where('c.status', 'active')->exists();
+            if (! $stillAssigned) {
+                DB::table('vehicles')->where('id', $record->vehicle_id)->where('status', 'deployed')->update(['status' => 'available', 'updated_at' => now()]);
+            }
+        }
         if ($module === 'employees' && $record->photo_path) {
             Storage::disk('public')->delete($record->photo_path);
         }
 
         return back()->with('success', $definition['singular'].' deleted successfully.');
+    }
+
+    private function storeDeployments(Request $request): void
+    {
+        $data = $this->deploymentInput($request, true);
+        $contract = DB::table('contracts')->where('id', $data['contract_id'])->where('status', 'active')->first();
+        if (! $contract) {
+            throw ValidationException::withMessages(['contract_id' => 'Choose an active contract.']);
+        }
+        if (in_array($contract->service_type, ['ambulance', 'cab'], true)) {
+            foreach ($data['employee_assignments'] ?? [] as $assignment) {
+                if (! in_array($assignment['position'] ?? null, ['driver', 'assistant', 'paramedic', 'attendant', 'other'], true)) {
+                    throw ValidationException::withMessages(['employee_assignments' => 'Choose a crew role for each employee assigned to an ambulance or cab contract.']);
+                }
+            }
+        }
+
+        DB::transaction(function () use ($data, $contract): void {
+            $employeeIds = collect($data['employee_assignments'] ?? [])->pluck('employee_id')->map(fn ($id) => (int) $id)->all();
+            $vehicleIds = array_map('intval', $data['vehicle_ids'] ?? []);
+            if ($employeeIds) {
+                DB::table('employees')->whereIn('id', $employeeIds)->lockForUpdate()->get();
+            }
+            if ($vehicleIds) {
+                DB::table('vehicles')->whereIn('id', $vehicleIds)->lockForUpdate()->get();
+            }
+            $this->assertResourcesAvailable($employeeIds, $vehicleIds);
+            if ($vehicleIds && in_array($contract->service_type, ['ambulance', 'cab'], true)) {
+                $matchingVehicles = DB::table('vehicles')->whereIn('id', $vehicleIds)->where('service_type', $contract->service_type)->count();
+                if ($matchingVehicles !== count($vehicleIds)) {
+                    throw ValidationException::withMessages(['vehicle_ids' => 'Choose vehicles that match the contract service type.']);
+                }
+            } elseif ($vehicleIds) {
+                throw ValidationException::withMessages(['vehicle_ids' => 'Vehicles can only be assigned to ambulance or cab contracts.']);
+            }
+
+            foreach ($data['employee_assignments'] ?? [] as $assignment) {
+                $position = $assignment['position'] ?? null;
+                if ($contract->service_type === 'manpower') {
+                    $position = DB::table('employees')->where('id', $assignment['employee_id'])->value('role');
+                }
+                $this->insertDeployment($contract, (int) $assignment['employee_id'], null, $position);
+            }
+            foreach ($vehicleIds as $vehicleId) {
+                $this->insertDeployment($contract, null, $vehicleId, null);
+                DB::table('vehicles')->where('id', $vehicleId)->update(['status' => 'deployed', 'updated_at' => now()]);
+            }
+        }, 3);
+    }
+
+    private function updateDeployment(Request $request, object $record): void
+    {
+        $data = $this->deploymentInput($request, false);
+        $contract = DB::table('contracts')->where('id', $data['contract_id'])->where('status', 'active')->first();
+        if (! $contract) {
+            throw ValidationException::withMessages(['contract_id' => 'Choose an active contract.']);
+        }
+        $combinedRecord = (bool) $record->employee_id && (bool) $record->vehicle_id;
+        $moveResource = $combinedRecord ? ($data['move_resource'] ?? null) : ($record->employee_id ? 'employee' : 'vehicle');
+        $employeeId = $moveResource === 'employee' ? (int) ($data['employee_id'] ?? 0) : null;
+        $vehicleId = $moveResource === 'vehicle' ? (int) ($data['vehicle_id'] ?? 0) : null;
+        if ((! $employeeId && ! $vehicleId) || ($combinedRecord && ! $moveResource)) {
+            throw ValidationException::withMessages(['resource' => 'Select one resource matching this deployment.']);
+        }
+        if ($employeeId && in_array($contract->service_type, ['ambulance', 'cab'], true)
+            && ! in_array($data['position'] ?? null, ['driver', 'assistant', 'paramedic', 'attendant', 'other'], true)) {
+            throw ValidationException::withMessages(['position' => 'Choose a crew role for this employee.']);
+        }
+
+        DB::transaction(function () use ($record, $contract, $employeeId, $vehicleId, $data, $combinedRecord, $moveResource): void {
+            if ($employeeId) {
+                DB::table('employees')->where('id', $employeeId)->lockForUpdate()->first();
+            }
+            if ($vehicleId) {
+                DB::table('vehicles')->where('id', $vehicleId)->lockForUpdate()->first();
+            }
+            $this->assertResourcesAvailable($employeeId ? [$employeeId] : [], $vehicleId ? [$vehicleId] : [], (int) $record->id);
+            if ($vehicleId && ($contract->service_type !== DB::table('vehicles')->where('id', $vehicleId)->value('service_type'))) {
+                throw ValidationException::withMessages(['vehicle_id' => 'Choose a vehicle that matches the contract service type.']);
+            }
+            if ($combinedRecord) {
+                $sourceContract = DB::table('contracts')->where('id', $record->contract_id)->first();
+                if ($moveResource === 'employee') {
+                    $this->insertDeployment($sourceContract, null, (int) $record->vehicle_id, null);
+                } else {
+                    $employeeRole = DB::table('employees')->where('id', $record->employee_id)->value('role');
+                    $this->insertDeployment($sourceContract, (int) $record->employee_id, null, $record->position ?: $employeeRole);
+                }
+            }
+            $position = $employeeId ? ($data['position'] ?? null) : null;
+            if ($employeeId && $contract->service_type === 'manpower') {
+                $position = DB::table('employees')->where('id', $employeeId)->value('role');
+            }
+            DB::table('contract_deployments')->where('id', $record->id)->update([
+                'contract_id' => $contract->id, 'service_type' => $contract->service_type,
+                'employee_id' => $employeeId, 'vehicle_id' => $vehicleId,
+                'position' => $position,
+                'start_date' => $record->start_date ?: today()->toDateString(), 'monthly_rate' => 0,
+                'status' => 'active', 'updated_at' => now(),
+            ]);
+            if ($vehicleId) {
+                DB::table('vehicles')->where('id', $vehicleId)->update(['status' => 'deployed', 'updated_at' => now()]);
+            }
+            if ($record->vehicle_id && (int) $record->vehicle_id !== (int) $vehicleId) {
+                $stillAssigned = DB::table('contract_deployments as d')->join('contracts as c', 'c.id', '=', 'd.contract_id')
+                    ->where('d.vehicle_id', $record->vehicle_id)->where('d.status', 'active')->where('c.status', 'active')
+                    ->where('d.id', '<>', $record->id)->exists();
+                if (! $stillAssigned) {
+                    DB::table('vehicles')->where('id', $record->vehicle_id)->where('status', 'deployed')->update(['status' => 'available', 'updated_at' => now()]);
+                }
+            }
+        }, 3);
+    }
+
+    private function deploymentInput(Request $request, bool $creating): array
+    {
+        $rules = [
+            'contract_id' => ['required', 'integer', 'exists:contracts,id'],
+            'employee_assignments' => ['nullable', 'array'],
+            'employee_assignments.*.employee_id' => ['required', 'integer', 'distinct', 'exists:employees,id'],
+            'employee_assignments.*.position' => ['nullable', 'in:driver,assistant,paramedic,attendant,other'],
+            'vehicle_ids' => ['nullable', 'array'],
+            'vehicle_ids.*' => ['required', 'integer', 'distinct', 'exists:vehicles,id'],
+            'employee_id' => ['nullable', 'integer', 'exists:employees,id'],
+            'vehicle_id' => ['nullable', 'integer', 'exists:vehicles,id'],
+            'position' => ['nullable', 'in:driver,assistant,paramedic,attendant,other'],
+            'move_resource' => ['nullable', 'in:employee,vehicle'],
+        ];
+        $data = $request->validate($rules);
+        if ($creating && empty($data['employee_assignments']) && empty($data['vehicle_ids'])) {
+            throw ValidationException::withMessages(['resource' => 'Add at least one employee or vehicle.']);
+        }
+        foreach ($data['employee_assignments'] ?? [] as $assignment) {
+            if (! DB::table('employees')->where('id', $assignment['employee_id'])->where('status', 'active')->exists()) {
+                throw ValidationException::withMessages(['employee_assignments' => 'Only active employees can be deployed.']);
+            }
+        }
+        if (! empty($data['employee_id']) && ! DB::table('employees')->where('id', $data['employee_id'])->where('status', 'active')->exists()) {
+            throw ValidationException::withMessages(['employee_id' => 'Only active employees can be deployed.']);
+        }
+        foreach ($data['vehicle_ids'] ?? [] as $vehicleId) {
+            if (! DB::table('vehicles')->where('id', $vehicleId)->whereNotIn('status', ['maintenance', 'inactive'])->exists()) {
+                throw ValidationException::withMessages(['vehicle_ids' => 'Vehicles in maintenance or inactive status cannot be deployed.']);
+            }
+        }
+        if (! empty($data['vehicle_id']) && ! DB::table('vehicles')->where('id', $data['vehicle_id'])->whereNotIn('status', ['maintenance', 'inactive'])->exists()) {
+            throw ValidationException::withMessages(['vehicle_id' => 'Vehicles in maintenance or inactive status cannot be deployed.']);
+        }
+
+        return $data;
+    }
+
+    private function assertResourcesAvailable(array $employeeIds, array $vehicleIds, ?int $exceptDeploymentId = null): void
+    {
+        $check = DB::table('contract_deployments as d')->join('contracts as c', 'c.id', '=', 'd.contract_id')
+            ->where('d.status', 'active')->where('c.status', 'active')
+            ->when($exceptDeploymentId, fn ($query) => $query->where('d.id', '<>', $exceptDeploymentId));
+        if ($employeeIds && (clone $check)->whereIn('d.employee_id', $employeeIds)->exists()) {
+            throw ValidationException::withMessages(['employee_assignments' => 'One or more selected employees are already assigned to an active contract.']);
+        }
+        if ($vehicleIds && (clone $check)->whereIn('d.vehicle_id', $vehicleIds)->exists()) {
+            throw ValidationException::withMessages(['vehicle_ids' => 'One or more selected vehicles are already assigned to an active contract.']);
+        }
+    }
+
+    private function insertDeployment(object $contract, ?int $employeeId, ?int $vehicleId, ?string $position): void
+    {
+        DB::table('contract_deployments')->insert([
+            'contract_id' => $contract->id, 'service_type' => $contract->service_type,
+            'employee_id' => $employeeId, 'vehicle_id' => $vehicleId, 'position' => $position,
+            'start_date' => today()->toDateString(), 'end_date' => null, 'monthly_rate' => 0,
+            'status' => 'active', 'notes' => null, 'created_at' => now(), 'updated_at' => now(),
+        ]);
     }
 
     private function validated(Request $request, array $definition, ?int $id = null): array

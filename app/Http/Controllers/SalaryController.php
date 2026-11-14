@@ -48,7 +48,7 @@ class SalaryController extends Controller
         $query = DB::table('employee_salaries')
             ->where('salary_month', $month->toDateString());
 
-        if (!empty($filters['employee_ids'])) {
+        if (! empty($filters['employee_ids'])) {
             $query->whereIn('employee_id', $filters['employee_ids']);
         }
 
@@ -270,7 +270,7 @@ class SalaryController extends Controller
         $pfBasis = min($earnedWages, (float) $settings['pf_monthly_wage_ceiling']);
         $pfEmployee = $epfExempt ? 0 : round($pfBasis * (float) $settings['pf_employee_rate'] / 100);
         $pfEmployer = $epfExempt ? 0 : round($pfBasis * (float) $settings['pf_employer_rate'] / 100);
-        $esiApplicable = !$esiExempt && $earnedWages > 0 && $earnedWages <= (float) $settings['esi_monthly_wage_limit'];
+        $esiApplicable = ! $esiExempt && $earnedWages > 0 && $earnedWages <= (float) $settings['esi_monthly_wage_limit'];
         $esiEmployee = $esiApplicable && (float) $employee->daily_wages_rate > (float) $settings['esi_employee_exemption_daily_wage']
             ? round($earnedWages * (float) $settings['esi_employee_rate'] / 100)
             : 0;

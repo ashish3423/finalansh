@@ -75,16 +75,14 @@ return [
     ],
     'deployments' => [
         'title' => 'Contract Deployments', 'singular' => 'Deployment', 'table' => 'contract_deployments', 'icon' => 'bi-diagram-3',
-        'search' => ['position', 'notes'], 'filters' => ['service_type' => ['ambulance' => 'Ambulance', 'manpower' => 'Manpower', 'cab' => 'Cab'], 'status' => ['active' => 'Active', 'completed' => 'Completed', 'on_hold' => 'On hold']],
-        'columns' => ['contract_id' => 'Contract', 'service_type' => 'Service', 'employee_id' => 'Employee', 'vehicle_id' => 'Vehicle', 'position' => 'Position', 'start_date' => 'Start', 'monthly_rate' => 'Monthly rate', 'status' => 'Status'],
+        'search' => ['position', 'notes'], 'filters' => ['service_type' => ['ambulance' => 'Ambulance', 'manpower' => 'Manpower', 'cab' => 'Cab']],
+        'columns' => ['contract_id' => 'Contract', 'service_type' => 'Service', 'employee_id' => 'Employee', 'vehicle_id' => 'Vehicle', 'position' => 'Role / position'],
         'fields' => [
             'contract_id' => ['Contract', 'relation', 'required|exists:contracts,id', 'contracts', 'contract_number'],
             'service_type' => ['Service type', 'select', 'required|in:ambulance,manpower,cab', ['ambulance' => 'Ambulance', 'manpower' => 'Manpower', 'cab' => 'Cab']],
             'employee_id' => ['Employee (optional)', 'relation_optional', 'nullable|exists:employees,id', 'employees', 'name'],
             'vehicle_id' => ['Vehicle (optional)', 'relation_optional', 'nullable|exists:vehicles,id', 'vehicles', 'registration_number'],
-            'position' => ['Role / position', 'text', 'nullable|string|max:120'], 'start_date' => ['Start date', 'date', 'required|date'],
-            'end_date' => ['End date', 'date', 'nullable|date|after_or_equal:start_date'], 'monthly_rate' => ['Monthly rate (₹)', 'number', 'required|numeric|min:0'],
-            'status' => ['Status', 'select', 'required|in:active,completed,on_hold', ['active' => 'Active', 'completed' => 'Completed', 'on_hold' => 'On hold']], 'notes' => ['Notes', 'textarea', 'nullable|string|max:2000'],
+            'position' => ['Role / position', 'text', 'nullable|string|max:120'],
         ],
     ],
     'service-logs' => [
