@@ -43,5 +43,25 @@ document.querySelectorAll('[data-toggle-password]').forEach((button) => {
 });
 </script>
 @stack('scripts')
+<div id="authSubmitLoader" class="listing-load-overlay" role="status" aria-live="polite" aria-label="Signing in" hidden>
+    <div class="listing-load-card"><span class="spinner-border text-primary" aria-hidden="true"></span><span>Signing in…</span></div>
+</div>
+<script>
+(() => {
+    const loginForm = document.getElementById('loginForm');
+    const loader = document.getElementById('authSubmitLoader');
+    if (!loginForm || !loader) return;
+
+    loginForm.addEventListener('submit', () => {
+        loader.hidden = false;
+        document.body.classList.add('listing-is-loading');
+    });
+
+    window.addEventListener('pageshow', () => {
+        loader.hidden = true;
+        document.body.classList.remove('listing-is-loading');
+    });
+})();
+</script>
 </body>
 </html>

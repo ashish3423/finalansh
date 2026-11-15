@@ -8,7 +8,7 @@
     <div class="card account-card"><div class="card-body">
         <div class="eyebrow">OPERATIONS PORTAL</div><h1 class="mb-1">Welcome back</h1><p class="text-body-secondary mb-4">Sign in to manage your contracts and services.</p>
         @if ($errors->any()) <div class="alert alert-danger">{{ $errors->first() }}</div> @endif
-        <form method="POST" action="{{ route('login.store') }}">
+        <form id="loginForm" method="POST" action="{{ route('login.store') }}">
             @csrf
             <div class="mb-3"><label for="email" class="form-label">Email address</label><input id="email" class="form-control @error('email') is-invalid @enderror" type="email" name="email" value="{{ old('email') }}" autocomplete="username" required autofocus>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
             <div class="mb-3"><label for="password" class="form-label">Password</label><div class="input-group"><input id="password" class="form-control" type="password" name="password" autocomplete="current-password" required><button class="btn btn-light border" type="button" data-toggle-password="password" aria-label="Show password"><i class="bi bi-eye"></i></button></div></div>
