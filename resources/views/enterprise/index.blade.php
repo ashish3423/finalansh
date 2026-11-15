@@ -59,7 +59,7 @@
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div><h5 class="mb-1">{{ $definition['title'] }} list</h5><div class="text-muted small">{{ number_format($rows->total()) }} {{ strtolower($definition['singular']) }} record(s)</div></div>
             <form method="GET" action="{{ route('resources.index', $module) }}" class="filter-bar d-flex flex-wrap gap-2">
-                <div class="input-group search-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" name="search" value="{{ request('search') }}" placeholder="Search records..."></div>
+                <div class="input-group search-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" name="search" value="{{ request('search') }}" placeholder="{{ $module === 'deployments' ? 'Contract number, employee or vehicle' : 'Search records...' }}"></div>
                 @foreach ($definition['filters'] as $filter => $filterOptions)
                     <select class="form-select filter-select" name="{{ $filter }}" aria-label="Filter by {{ str_replace('_', ' ', $filter) }}"><option value="">All {{ str_replace('_', ' ', $filter) }}</option>@foreach ($filterOptions as $value => $label)<option value="{{ $value }}" @selected(request($filter) === $value)>{{ $label }}</option>@endforeach</select>
                 @endforeach

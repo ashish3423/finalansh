@@ -67,6 +67,41 @@
 
     @yield('scripts')
 
+    <div id="listingLoadOverlay" class="listing-load-overlay" role="status" aria-live="polite" aria-label="Loading records" hidden>
+        <div class="listing-load-card">
+            <span class="spinner-border text-primary" aria-hidden="true"></span>
+            <span>Loading records…</span>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const overlay = document.getElementById('listingLoadOverlay');
+            if (!overlay) return;
+
+            const showLoader = () => {
+                overlay.hidden = false;
+                document.body.classList.add('listing-is-loading');
+            };
+
+            document.addEventListener('submit', event => {
+                const form = event.target;
+                if (!form.matches('form.filter-bar')) return;
+                if (event.submitter?.id === 'salaryExportButton') return;
+                showLoader();
+            });
+
+            document.addEventListener('click', event => {
+                if (event.target.closest('.filter-bar a')) showLoader();
+            });
+
+            window.addEventListener('pageshow', () => {
+                overlay.hidden = true;
+                document.body.classList.remove('listing-is-loading');
+            });
+        })();
+    </script>
+
    
    
    

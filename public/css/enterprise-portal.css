@@ -103,6 +103,10 @@
 .expiry-reminder-actions { display:flex; width:100%; justify-content:flex-end; align-items:center; flex-wrap:nowrap; gap:.5rem; }
 .expiry-reminder-actions form { display:flex; flex:0 0 auto; }
 @media(max-width:420px) { .expiry-reminder-actions { gap:.35rem; }.expiry-reminder-actions .btn { padding:.35rem .45rem; font-size:.74rem; } }
+.listing-load-overlay { position:fixed; inset:0; z-index:2000; display:grid; place-items:center; padding:1rem; background:rgba(246,248,252,.74); backdrop-filter:blur(2px); }
+.listing-load-overlay[hidden] { display:none!important; }
+.listing-load-card { display:flex; align-items:center; gap:.8rem; padding:1rem 1.25rem; border:1px solid #e4e9f2; border-radius:12px; color:#293953; background:#fff; box-shadow:0 12px 35px rgba(30,50,90,.16); font-size:.9rem; font-weight:700; }
+.listing-is-loading { overflow:hidden; }
 .account-page { width:100%; }
 .account-brand { display:flex; align-items:center; justify-content:center; gap:.65rem; color:#1e2d50; font-size:1.1rem; font-weight:750; }
 .account-card { border:1px solid #e6ebf4; border-radius:16px; box-shadow:0 12px 35px rgba(30,50,90,.08); }

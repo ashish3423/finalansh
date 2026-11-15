@@ -53,9 +53,26 @@ class EnterpriseController extends Controller
 
         if ($request->filled('search')) {
             $search = trim($request->string('search')->toString());
-            $query->where(function ($builder) use ($definition, $search) {
+            $query->where(function ($builder) use ($definition, $search, $module) {
                 foreach ($definition['search'] as $column) {
                     $builder->orWhere($column, 'like', '%'.$search.'%');
+                }
+
+                if ($module === 'deployments') {
+                    $pattern = '%'.$search.'%';
+                    $builder->orWhereExists(function ($subquery) use ($pattern) {
+                        $subquery->selectRaw('1')->from('contracts')
+                            ->whereColumn('contracts.id', 'contract_deployments.contract_id')
+                            ->where('contracts.contract_number', 'like', $pattern);
+                    })->orWhereExists(function ($subquery) use ($pattern) {
+                        $subquery->selectRaw('1')->from('employees')
+                            ->whereColumn('employees.id', 'contract_deployments.employee_id')
+                            ->where('employees.name', 'like', $pattern);
+                    })->orWhereExists(function ($subquery) use ($pattern) {
+                        $subquery->selectRaw('1')->from('vehicles')
+                            ->whereColumn('vehicles.id', 'contract_deployments.vehicle_id')
+                            ->where('vehicles.registration_number', 'like', $pattern);
+                    });
                 }
             });
         }
