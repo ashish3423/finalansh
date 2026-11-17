@@ -57,8 +57,10 @@
   const setTheme = theme => {
     if (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       document.documentElement.setAttribute('data-coreui-theme', 'dark');
+      document.documentElement.setAttribute('data-bs-theme', 'dark');
     } else {
       document.documentElement.setAttribute('data-coreui-theme', theme);
+      document.documentElement.setAttribute('data-bs-theme', theme);
     }
     const event = new Event('ColorSchemeChange');
     document.documentElement.dispatchEvent(event);
@@ -94,7 +96,7 @@
   };
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     const storedTheme = getStoredTheme();
-    if (storedTheme !== 'light' || storedTheme !== 'dark') {
+    if (storedTheme !== 'light' && storedTheme !== 'dark') {
       setTheme(getPreferredTheme());
     }
   });
@@ -107,6 +109,26 @@
         setTheme(theme);
         showActiveTheme(theme);
       });
+    }
+
+    for (const toggle of document.querySelectorAll('[data-theme-toggle]')) {
+      const updateToggle = () => {
+        const isDark = document.documentElement.getAttribute('data-coreui-theme') === 'dark';
+        const icon = toggle.querySelector('i');
+        toggle.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+        toggle.setAttribute('title', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+        if (icon) {
+          icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon-stars';
+        }
+      };
+
+      toggle.addEventListener('click', () => {
+        const theme = document.documentElement.getAttribute('data-coreui-theme') === 'dark' ? 'light' : 'dark';
+        setStoredTheme(theme);
+        setTheme(theme);
+        updateToggle();
+      });
+      updateToggle();
     }
   });
 })();

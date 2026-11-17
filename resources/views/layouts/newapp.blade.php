@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-coreui-theme="light" data-bs-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -24,11 +24,11 @@
   
 <link rel="stylesheet"
       href="{{ asset('css/employee-management.css') }}">
-<link rel="stylesheet" href="{{ asset('css/enterprise-portal.css') }}?v=20261104-1">
+<link rel="stylesheet" href="{{ asset('css/enterprise-portal.css') }}?v=20261117-1">
 
 
     <!-- <script src="{{ asset('js/config.js') }}"></script> -->
-    <script src="{{ asset('js/color-modes.js') }}?v=20261104-1"></script>
+    <script src="{{ asset('js/color-modes.js') }}?v=20261117-1"></script>
 </head>
 
 <body>

@@ -6,6 +6,7 @@
         <div class="header-title ms-3">@yield('page-title', 'Operations Portal')</div>
         <div class="ms-auto d-flex align-items-center gap-3 py-2">
             <span class="company-chip"><i class="bi bi-shield-check"></i> ANSH Enterprises</span>
+            <button class="btn btn-light border theme-toggle" type="button" data-theme-toggle aria-label="Switch theme" title="Switch theme"><i class="bi bi-moon-stars"></i></button>
             <div class="dropdown">
                 <button class="btn btn-link user-menu-button dropdown-toggle text-decoration-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <span class="user-avatar"><i class="bi bi-person-fill"></i></span>
