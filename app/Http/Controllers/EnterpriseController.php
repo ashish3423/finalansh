@@ -79,12 +79,42 @@ class EnterpriseController extends Controller
 
         $rows = $query->orderByDesc('id')->paginate(15)->withQueryString();
         $options = $this->fieldOptions($definition);
-        $relationLabels = $this->relationLabels($definition);
-        $deploymentContracts = $deploymentEmployees = $deploymentVehicles = $assignedEmployeeRows = $assignedVehicleRows = [];
+        $relationLabels = $this->relationLabels($definition, $options);
+        $uniqueValues = [];
+        foreach ($definition['fields'] as $column => $field) {
+            foreach (explode('|', $field[2]) as $rule) {
+                if (! str_starts_with($rule, 'unique:')) {
+                    continue;
+                }
+                [$table, $uniqueColumn] = array_pad(explode(',', substr($rule, 7)), 2, $column);
+                $uniqueValues[$column] = DB::table($table)->pluck($uniqueColumn)->filter()->values()->all();
+            }
+        }
+        $deploymentContracts = $deploymentEmployees = $deploymentVehicles = $assignedEmployeeRows = $assignedVehicleRows = $clientDetails = [];
+        $vehicleModelMeta = $vehicleModelCategories = [];
+        if ($module === 'vehicles') {
+            $vehicleModels = DB::table('ambulance_types')->get(['id', 'service_type', 'category']);
+            foreach ($vehicleModels as $vehicleModel) {
+                $vehicleModelMeta[$vehicleModel->id] = ['service_type' => $vehicleModel->service_type, 'category' => $vehicleModel->category];
+                if ($vehicleModel->category !== null) {
+                    $vehicleModelCategories[$vehicleModel->service_type][$vehicleModel->category] = $vehicleModel->category;
+                }
+            }
+            foreach ($vehicleModelCategories as $type => $categories) {
+                $vehicleModelCategories[$type] = array_values($categories);
+            }
+        }
+        if ($module === 'contracts') {
+            $clientDetails = DB::table('government_clients')->get(['id', 'department', 'address'])->keyBy('id');
+        }
         if ($module === 'deployments') {
             $deploymentContracts = DB::table('contracts')->where('status', 'active')->orderBy('contract_number')->get(['id', 'contract_number', 'service_type']);
             $deploymentEmployees = DB::table('employees')->where('status', 'active')->orderBy('employee_code')->get(['id', 'employee_code', 'name', 'role']);
-            $deploymentVehicles = DB::table('vehicles')->whereNotIn('status', ['maintenance', 'inactive'])->orderBy('registration_number')->get(['id', 'registration_number', 'service_type', 'make_model']);
+            $deploymentVehicles = DB::table('vehicles')
+                ->leftJoin('ambulance_types as at', 'at.id', '=', 'vehicles.ambulance_type_id')
+                ->whereNotIn('vehicles.status', ['maintenance', 'inactive'])
+                ->orderBy('vehicles.registration_number')
+                ->get(['vehicles.id', 'vehicles.registration_number', 'vehicles.service_type', 'vehicles.year', 'at.service_type as model_service_type', 'at.category as ambulance_category', 'at.name as ambulance_model']);
             $activeAssignments = DB::table('contract_deployments as d')
                 ->join('contracts as c', 'c.id', '=', 'd.contract_id')
                 ->where('d.status', 'active')->where('c.status', 'active')
@@ -102,7 +132,7 @@ class EnterpriseController extends Controller
             }
         }
 
-        return view('enterprise.index', compact('module', 'definition', 'rows', 'options', 'relationLabels', 'deploymentContracts', 'deploymentEmployees', 'deploymentVehicles', 'assignedEmployeeRows', 'assignedVehicleRows'));
+        return view('enterprise.index', compact('module', 'definition', 'rows', 'options', 'relationLabels', 'uniqueValues', 'deploymentContracts', 'deploymentEmployees', 'deploymentVehicles', 'assignedEmployeeRows', 'assignedVehicleRows', 'clientDetails', 'vehicleModelMeta', 'vehicleModelCategories'));
     }
 
     public function store(Request $request, string $module)
@@ -115,14 +145,13 @@ class EnterpriseController extends Controller
         }
         $data = $this->validated($request, $definition);
         if ($module === 'contracts') {
-            $data['title'] = $data['organization'];
+            $data['title'] = $data['contract_number'];
         }
-        $photo = $data['photo'] ?? null;
-        unset($data['photo']);
+        if ($module === 'vehicles') {
+            $this->assertVehicleModelMatchesType($data, $request->input('vehicle_model_category'));
+        }
         if ($module === 'employees') {
-            if ($photo) {
-                $data['photo_path'] = $photo->store('employees', 'public');
-            }
+            $this->processEmployeeUploads($data, $definition);
             DB::transaction(function () use ($data): void {
                 $employeeData = $data;
                 $employeeData['employee_code'] = $this->nextEmployeeCode();
@@ -147,16 +176,26 @@ class EnterpriseController extends Controller
         }
         $data = $this->validated($request, $definition, $id);
         if ($module === 'contracts') {
-            $data['title'] = $data['organization'];
+            $data['title'] = $data['contract_number'];
         }
-        $photo = $data['photo'] ?? null;
-        unset($data['photo']);
-        if ($module === 'employees' && $photo) {
-            $data['photo_path'] = $photo->store('employees', 'public');
+        if ($module === 'vehicles') {
+            $this->assertVehicleModelMatchesType($data, $request->input('vehicle_model_category'));
         }
+        if ($module === 'designations') {
+            $oldName = $record->name;
+            DB::transaction(function () use ($definition, $data, $id, $oldName): void {
+                DB::table($definition['table'])->where('id', $id)->update($data + ['updated_at' => now()]);
+                if ($oldName !== $data['name']) {
+                    DB::table('employees')->where('role', $oldName)->update(['role' => $data['name'], 'updated_at' => now()]);
+                }
+            });
+
+            return back()->with('success', $definition['singular'].' updated successfully.');
+        }
+        $oldUploadPaths = $module === 'employees' ? $this->processEmployeeUploads($data, $definition, $record) : [];
         DB::table($definition['table'])->where('id', $id)->update($data + ['updated_at' => now()]);
-        if ($module === 'employees' && $photo && $record->photo_path) {
-            Storage::disk('public')->delete($record->photo_path);
+        foreach ($oldUploadPaths as $path) {
+            Storage::disk('public')->delete($path);
         }
 
         return back()->with('success', $definition['singular'].' updated successfully.');
@@ -167,6 +206,13 @@ class EnterpriseController extends Controller
         $definition = $this->module($module);
         $record = DB::table($definition['table'])->where('id', $id)->first();
         abort_unless($record, 404);
+
+        if ($module === 'designations' && DB::table('employees')->where('role', $record->name)->exists()) {
+            return back()->with('error', 'This designation is assigned to employees and cannot be deleted.');
+        }
+        if ($module === 'ambulance-types' && DB::table('vehicles')->where('ambulance_type_id', $record->id)->exists()) {
+            return back()->with('error', 'This vehicle model is assigned to fleet vehicles and cannot be deleted.');
+        }
 
         try {
             $deleted = DB::table($definition['table'])->where('id', $id)->delete();
@@ -182,8 +228,12 @@ class EnterpriseController extends Controller
                 DB::table('vehicles')->where('id', $record->vehicle_id)->where('status', 'deployed')->update(['status' => 'available', 'updated_at' => now()]);
             }
         }
-        if ($module === 'employees' && $record->photo_path) {
-            Storage::disk('public')->delete($record->photo_path);
+        if ($module === 'employees') {
+            foreach ($this->employeeUploadPathColumns($definition) as $pathColumn) {
+                if ($record->{$pathColumn}) {
+                    Storage::disk('public')->delete($record->{$pathColumn});
+                }
+            }
         }
 
         return back()->with('success', $definition['singular'].' deleted successfully.');
@@ -374,6 +424,17 @@ class EnterpriseController extends Controller
         }
 
         $data = $request->validate($rules);
+        foreach ($definition['fields'] as $column => $field) {
+            if ($field[1] !== 'conditional-file' || (string) ($data[$field[3]] ?? '') !== (string) $field[4] || $request->hasFile($column)) {
+                continue;
+            }
+
+            $existingPath = $id ? DB::table($definition['table'])->where('id', $id)->value($column.'_path') : null;
+            if (! $existingPath) {
+                throw ValidationException::withMessages([$column => 'Upload the selected document before saving.']);
+            }
+        }
+
         foreach ($data as $key => $value) {
             if (is_string($value) && str_contains($value, 'T') && ($definition['fields'][$key][1] ?? null) === 'datetime-local') {
                 $data[$key] = str_replace('T', ' ', $value).(strlen($value) === 16 ? ':00' : '');
@@ -400,23 +461,94 @@ class EnterpriseController extends Controller
     {
         $options = [];
         foreach ($definition['fields'] as $column => $field) {
+            if ($field[1] === 'dynamic-select' && $column === 'role') {
+                $options[$column] = DB::table('designations')->orderBy('name')->pluck('name', 'name')->all();
+            }
             if (in_array($field[1], ['relation', 'relation_optional'], true)) {
                 $options[$column] = DB::table($field[3])->orderBy($field[4])->pluck($field[4], 'id')->all();
+            }
+            if ($field[1] === 'conditional-relation' && $field[5] === 'ambulance_types') {
+                $options[$column] = DB::table($field[5])->orderBy('service_type')->orderBy('category')->orderBy('name')->pluck('name', 'id')->all();
             }
         }
 
         return $options;
     }
 
-    private function relationLabels(array $definition): array
+    private function processEmployeeUploads(array &$data, array $definition, ?object $record = null): array
+    {
+        $oldPaths = [];
+        foreach ($definition['fields'] as $name => $field) {
+            if (! in_array($field[1], ['file', 'conditional-file'], true)) {
+                continue;
+            }
+
+            $upload = $data[$name] ?? null;
+            unset($data[$name]);
+            $pathColumn = $name === 'photo' ? 'photo_path' : $name.'_path';
+            $existingPath = $record->{$pathColumn} ?? null;
+
+            if ($field[1] === 'conditional-file' && (string) ($data[$field[3]] ?? '') !== (string) $field[4]) {
+                if ($existingPath) {
+                    $oldPaths[] = $existingPath;
+                }
+                $data[$pathColumn] = null;
+
+                continue;
+            }
+
+            if ($upload) {
+                $directory = $name === 'photo' ? 'employees' : 'employee-documents';
+                $data[$pathColumn] = $upload->store($directory, 'public');
+                if ($existingPath) {
+                    $oldPaths[] = $existingPath;
+                }
+            }
+        }
+
+        return $oldPaths;
+    }
+
+    private function employeeUploadPathColumns(array $definition): array
+    {
+        $columns = [];
+        foreach ($definition['fields'] as $name => $field) {
+            if (in_array($field[1], ['file', 'conditional-file'], true)) {
+                $columns[] = $name === 'photo' ? 'photo_path' : $name.'_path';
+            }
+        }
+
+        return $columns;
+    }
+
+    private function relationLabels(array $definition, array $options = []): array
     {
         $labels = [];
         foreach ($definition['fields'] as $column => $field) {
             if (in_array($field[1], ['relation', 'relation_optional'], true)) {
                 $labels[$column] = DB::table($field[3])->pluck($field[4], 'id')->all();
             }
+            if ($field[1] === 'conditional-relation') {
+                if ($field[5] === 'ambulance_types') {
+                    $labels[$column] = DB::table($field[5])->get(['id', 'category', 'name'])
+                        ->mapWithKeys(fn ($record) => [$record->id => ($record->category ? $record->category.' — ' : '').$record->name])->all();
+                } else {
+                    $labels[$column] = $options[$column] ?? [];
+                }
+            }
         }
 
         return $labels;
+    }
+
+    private function assertVehicleModelMatchesType(array $data, ?string $modelCategory): void
+    {
+        $modelId = $data['ambulance_type_id'] ?? null;
+        $serviceType = $data['service_type'] ?? null;
+        if (! $modelId || ! $modelCategory || ! DB::table('ambulance_types')->where('id', $modelId)->where('service_type', $serviceType)->where('category', $modelCategory)->exists()) {
+            throw ValidationException::withMessages([
+                'ambulance_type_id' => 'Choose a model that matches the selected vehicle type and category.',
+            ]);
+        }
     }
 }
