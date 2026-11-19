@@ -62,7 +62,11 @@
             <form method="GET" action="{{ route('resources.index', $module) }}" class="filter-bar d-flex flex-wrap gap-2">
                 <div class="input-group search-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" name="search" value="{{ request('search') }}" placeholder="{{ $module === 'deployments' ? 'Contract number, employee or vehicle' : 'Search records...' }}"></div>
                 @foreach ($definition['filters'] as $filter => $filterOptions)
-                    <select class="form-select filter-select" name="{{ $filter }}" aria-label="Filter by {{ str_replace('_', ' ', $filter) }}"><option value="">All {{ str_replace('_', ' ', $filter) }}</option>@foreach ($filterOptions as $value => $label)<option value="{{ $value }}" @selected(request($filter) === $value)>{{ $label }}</option>@endforeach</select>
+                    @php
+                        $filterLabel = $module === 'ambulance-types' && $filter === 'category' ? 'Ambulance / Cab type' : str_replace('_', ' ', $filter);
+                        $filterPlaceholder = $module === 'ambulance-types' && $filter === 'category' ? 'All Ambulance / Cab types' : 'All '.str_replace('_', ' ', $filter);
+                    @endphp
+                    <select class="form-select filter-select" name="{{ $filter }}" aria-label="Filter by {{ $filterLabel }}"><option value="">{{ $filterPlaceholder }}</option>@foreach ($filterOptions as $value => $label)<option value="{{ $value }}" @selected(request($filter) === $value)>{{ $label }}</option>@endforeach</select>
                 @endforeach
                 <button class="btn btn-light border" type="submit">Filter</button>
                 @if (request()->query()) <a class="btn btn-light border" href="{{ route('resources.index', $module) }}">Reset</a> @endif

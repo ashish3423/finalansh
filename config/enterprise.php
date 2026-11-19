@@ -106,7 +106,10 @@ return [
     ],
     'ambulance-types' => [
         'title' => 'Vehicle Type Master', 'singular' => 'vehicle type', 'table' => 'ambulance_types', 'icon' => 'bi-truck-front',
-        'search' => ['service_type', 'category', 'name'], 'filters' => ['service_type' => ['ambulance' => 'Ambulance', 'cab' => 'Cab']],
+        'search' => ['service_type', 'category', 'name'], 'filters' => [
+            'service_type' => ['ambulance' => 'Ambulance', 'cab' => 'Cab'],
+            'category' => ['Premium' => 'Premium', 'Regular' => 'Regular', 'SUV' => 'SUV', 'Premium SUV' => 'Premium SUV', 'Sedan' => 'Sedan', 'Premium Sedan' => 'Premium Sedan'],
+        ],
         'columns' => ['service_type' => 'Vehicle type', 'category' => 'Ambulance / Cab type', 'name' => 'Model'],
         'fields' => [
             'service_type' => ['Vehicle type', 'select', 'required|in:ambulance,cab', ['ambulance' => 'Ambulance', 'cab' => 'Cab']],
